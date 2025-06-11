@@ -10,6 +10,16 @@ use env.{
 }
 
 test contract_bootstrap() {
+  // Treasury formation (sending assets, minting the marker token):
+  // - Redeemer: Bootstrap.
+  // - Inputs:
+  //   - ensure that `contract_policy_id.contract_treasury_asset_name` is not present in any input (it may only be minted);
+  // - Outputs:
+  //   - verify that N EMP are sent to the contract address along with the `contract_policy_id.contract_treasury_asset_name` asset;
+  // - Minting:
+  //   - ensure that exactly 1 `contract_treasury_asset_name` was minted;
+  // - AmountLock:
+  //   - it's not allowed to create a treasury with less than 10,000 EMP.
   let user_input_0 =
     Input(
       utxo_def_ref,
