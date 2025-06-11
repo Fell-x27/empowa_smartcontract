@@ -1,6 +1,10 @@
+use aiken/collection/list.{all, any, foldl, length}
 use cardano/address.{PaymentCredential}
-use cardano/assets.{AssetName, PolicyId}
-use cardano/transaction.{OutputReference, Transaction}
+use cardano/assets.{AssetName, PolicyId, quantity_of}
+use cardano/transaction.{
+  Input, Output, OutputReference, Transaction, find_script_outputs,
+}
+use config.{contract_treasury_asset_name}
 
 pub type Action {
   Bootstrap
@@ -9,10 +13,10 @@ pub type Action {
 }
 
 validator empowa_swap(
-  asset_pid: PolicyId,
-  asset_name: AssetName,
-  nft_pid: PolicyId,
-  nft_name: AssetName,
+  dist_asset_pid: PolicyId,
+  dist_asset_name: AssetName,
+  burn_nft_pid: PolicyId,
+  burn_nft_name: AssetName,
   n2a_change_rate: Int,
   start_change_time: Int,
   unlock_unclaimed_assets_time: Int,
@@ -21,13 +25,13 @@ validator empowa_swap(
   spend(_d, redeemer: Action, _u, tx: Transaction) {
     // Exchange (sending EMP):
     // - Inputs:
-    //   - ensure that the amount of EMP in the contract-owned inputs covers the total of the burned tokens;
+    //   - ensure that the amount of EMP in the contract-owned tx_inputs covers the total of the burned tokens;
     //   - collect the list of addresses holding `nft_pid` NFTs with names starting with `nft_name`.
     // - Outputs:
-    //   - ensure that the EMP difference between the contract's outputs and inputs equals the amount that must be paid to the user;
-    //   - if multiple treasuries were used as inputs (because one was not enough), only one or none should remain in the transaction outputs;
+    //   - ensure that the EMP difference between the contract's tx_outputs and tx_inputs equals the amount that must be paid to the user;
+    //   - if multiple treasuries were used as tx_inputs (because one was not enough), only one or none should remain in the transaction tx_outputs;
     //   - ensure that there is at most one contract output with `contract_policy_id.contract_treasury_asset_name` (exactly 1 item);
-    //   - ensure that all user outputs match the user inputs (NFT holders) by address and expected payout amount;
+    //   - ensure that all user tx_outputs match the user tx_inputs (NFT holders) by address and expected payout amount;
     //   - Ensure that no excess base ADA was withdrawn from the contract address, if any is present.
     // - Minting:
     //   - Check if any NFTs `nft_pid.nft_name...` were burned and that the payouts correspond to them;
@@ -40,23 +44,67 @@ validator empowa_swap(
     todo
   }
 
-  mint(redeemer: Action, contract_pid: PolicyId, tx: Transaction) {
-    let Transaction { inputs, outputs, mint, .. } = tx
+  mint(redeemer: Action, contract_policy_id: PolicyId, tx: Transaction) {
+    let Transaction {
+      inputs: tx_inputs,
+      outputs: tx_outputs,
+      mint: tx_mint,
+      ..
+    } = tx
 
     when redeemer is {
-      Bootstrap ->
+      Bootstrap -> {
         // Treasury formation (sending assets, minting the marker token):
         // - Redeemer: Bootstrap.
         // - Inputs:
         //   - ensure that `contract_policy_id.contract_treasury_asset_name` is not present in any input (it may only be minted);
+
+        let no_markers_in_inputs =
+          !any(
+            tx_inputs,
+            fn(Input { output: Output { value, .. }, .. }) {
+              quantity_of(
+                value,
+                contract_policy_id,
+                contract_treasury_asset_name,
+              ) > 0
+            },
+          )
+
         // - Outputs:
         //   - verify that N EMP are sent to the contract address along with the `contract_policy_id.contract_treasury_asset_name` asset;
-        // - Minting:
-        //   - ensure that exactly 1 `contract_treasury_asset_name` was minted;
         // - AmountLock:
-        //   - it's not allowed to create a treasury with less than 10,000 EMP.
-        todo @"Bootstrap"
+        //   - it's not allowed to create a treasury with less than 10,000 EMP;
+        //   - it's not allowed to create a treasury with `contract_policy_id.contract_treasury_asset_name` != 1 .
+        let script_outputs = find_script_outputs(tx_outputs, contract_policy_id)
+        let script_outputs_are_fine =
+          script_outputs
+            |> all(
+                fn(Output { value, .. }) {
+                  and {
+                    quantity_of(
+                      value,
+                      contract_policy_id,
+                      contract_treasury_asset_name,
+                    ) == 1,
+                    quantity_of(value, dist_asset_pid, dist_asset_name) >= 10_000,
+                  }
+                },
+              )
 
+        // - Minting:
+        //   - ensure that exactly 1 `contract_treasury_asset_name` per script_output was minted;
+        let script_outputs_quantity = length(script_outputs)
+        let minted_markers_quantity =
+          quantity_of(tx_mint, contract_policy_id, contract_treasury_asset_name)
+        let treasury_minting_is_fine =
+          script_outputs_quantity == minted_markers_quantity
+
+        and {
+          script_outputs_are_fine?,
+          treasury_minting_is_fine?,
+        }
+      }
       Recall ->
         // Treasury destruction (recalling EMP, unlocking base ADA, trashing empty treasury):
         // - Redeemer: Recall.
@@ -65,7 +113,7 @@ validator empowa_swap(
         //     or if the treasury UTXO contains no `dist_asset_pid.dist_asset_name` tokens;
         // - Outputs:
         //   - ensure that the only output goes to the address associated with `assets_owner_pcred`;
-        //   - ensure that there are no outputs containing `contract_policy_id.contract_treasury_asset_name`.
+        //   - ensure that there are no tx_outputs containing `contract_policy_id.contract_treasury_asset_name`.
         todo @"Recall"
 
       Exchange ->

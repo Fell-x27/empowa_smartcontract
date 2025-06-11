@@ -15,4 +15,5 @@ name = "aiken-lang/stdlib"
 version = "v2.2.0"
 source = "github"
 
-[config]
+[config.default]
+contract_treasury_asset_name = "TRS"

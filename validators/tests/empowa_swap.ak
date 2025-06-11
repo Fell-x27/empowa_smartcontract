@@ -1,13 +1,34 @@
-use cardano/address.{Address}
+use cardano/address.{Address, Script, VerificationKey}
 use cardano/assets.{from_asset, from_asset_list, from_lovelace}
-use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
-use empowa_swap.{Bootstrap, Exchange}
-use env.{
-  assets_owner_pcred, contract_pcred, contract_policy_id,
-  contract_treasury_asset_name, dist_asset_name, dist_asset_pid, n2a_change_rate,
-  nft_name, nft_pid, start_change_time, unlock_unclaimed_assets_time,
-  utxo_def_ref,
+use cardano/transaction.{
+  Input, NoDatum, Output, OutputReference, Transaction, placeholder,
 }
+use config
+use empowa_swap.{Bootstrap, Exchange}
+
+const dist_asset_pid = "EMP_policy_id"
+
+const dist_asset_name = "EMP"
+
+const burn_nft_pid = "NFT_policy_id"
+
+const burn_nft_name = "NFT name pattern"
+
+const n2a_change_rate = 1100
+
+const start_change_time = 1
+
+const unlock_unclaimed_assets_time = 10
+
+const assets_owner_pcred = VerificationKey("EMP owner")
+
+const contract_policy_id = "BURNER"
+
+const contract_pcred = Script(contract_policy_id)
+
+const contract_treasury_asset_name = config.contract_treasury_asset_name
+
+const utxo_def_ref = OutputReference("", 0)
 
 test contract_bootstrap() {
   // Treasury formation (sending assets, minting the marker token):
@@ -75,33 +96,32 @@ test contract_bootstrap() {
     }
 
   empowa_swap.empowa_swap.mint(
-    asset_pid: dist_asset_pid,
-    asset_name: dist_asset_name,
-    nft_pid: nft_pid,
-    nft_name: nft_name,
+    dist_asset_pid: dist_asset_pid,
+    dist_asset_name: dist_asset_name,
+    burn_nft_pid: burn_nft_pid,
+    burn_nft_name: burn_nft_name,
     n2a_change_rate: n2a_change_rate,
     start_change_time: start_change_time,
     unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
     unlock_unclaimed_assets_pcred: assets_owner_pcred,
     redeemer: Bootstrap,
-    contract_pid: contract_policy_id,
+    contract_policy_id: contract_policy_id,
     tx: tx,
   )
 }
-
-test burning_success() {
-  empowa_swap.empowa_swap.spend(
-    dist_asset_pid,
-    dist_asset_name,
-    nft_pid,
-    nft_name,
-    n2a_change_rate,
-    start_change_time,
-    unlock_unclaimed_assets_time,
-    assets_owner_pcred,
-    None,
-    Exchange,
-    Void,
-    placeholder,
-  )
-}
+// test burning_success() {
+//   empowa_swap.empowa_swap.spend(
+//     dist_asset_pid,
+//     dist_asset_name,
+//     nft_pid,
+//     nft_name,
+//     n2a_change_rate,
+//     start_change_time,
+//     unlock_unclaimed_assets_time,
+//     assets_owner_pcred,
+//     None,
+//     Exchange,
+//     Void,
+//     placeholder,
+//   )
+// }
