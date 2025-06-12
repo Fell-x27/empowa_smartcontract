@@ -101,6 +101,7 @@ validator empowa_swap(
           script_outputs_quantity == minted_markers_quantity
 
         and {
+          no_markers_in_inputs?,
           script_outputs_are_fine?,
           treasury_minting_is_fine?,
         }
