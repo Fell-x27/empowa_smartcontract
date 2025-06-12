@@ -80,30 +80,34 @@ validator empowa_swap(
         let script_outputs_are_fine =
           script_outputs
             |> all(
-                fn(Output { value, .. }) {
+                fn(Output { value: script_output_value, .. }) {
                   and {
-                    quantity_of(
-                      value,
+                    (quantity_of(
+                      script_output_value,
                       contract_policy_id,
                       contract_treasury_asset_name,
-                    ) == 1,
-                    quantity_of(value, dist_asset_pid, dist_asset_name) >= 10_000,
+                    ) == 1)?,
+                    (quantity_of(
+                      script_output_value,
+                      dist_asset_pid,
+                      dist_asset_name,
+                    ) >= 10_000)?,
                   }
                 },
               )
 
         // - Minting:
-        //   - ensure that exactly 1 `contract_treasury_asset_name` per script_output was minted;
+        //   - ensure that exactly 1 `contract_policy_id.contract_treasury_asset_name` per script_output was minted;
         let script_outputs_quantity = length(script_outputs)
         let minted_markers_quantity =
           quantity_of(tx_mint, contract_policy_id, contract_treasury_asset_name)
-        let treasury_minting_is_fine =
+        let minted_markers_match_script_outputs =
           script_outputs_quantity == minted_markers_quantity
 
         and {
           no_markers_in_inputs?,
           script_outputs_are_fine?,
-          treasury_minting_is_fine?,
+          minted_markers_match_script_outputs?,
         }
       }
       Recall ->
