@@ -28,7 +28,9 @@ pub const contract_pcred = Script(contract_policy_id)
 
 pub const contract_treasury_marker_name = config.contract_treasury_marker_name
 
-pub const utxo_def_ref = OutputReference("", 0)
+pub const utxo_def_ref = OutputReference("any", 0)
+
+pub const utxo_contract_ref = OutputReference("contract", 0)
 
 pub const user_address = Address(user_pcred, None)
 

@@ -7,7 +7,8 @@ use env.{
   assets_owner_pcred, burn_nft_name, burn_nft_pid, contract_address,
   contract_pcred, contract_policy_id, contract_treasury_marker_name,
   dist_asset_name, dist_asset_pid, n2a_change_rate, start_change_time,
-  unlock_unclaimed_assets_time, user_address, user_pcred, utxo_def_ref,
+  unlock_unclaimed_assets_time, user_address, user_pcred, utxo_contract_ref,
+  utxo_def_ref,
 }
 
 fn get_user_addr(pfx) {
@@ -65,7 +66,7 @@ test succeed_exchange_treasury_part_consume() {
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
   let script_input =
     Input(
-      utxo_def_ref,
+      utxo_contract_ref,
       Output {
         address: contract_address,
         value: from_asset_list(
@@ -86,9 +87,9 @@ test succeed_exchange_treasury_part_consume() {
         Pair(
           burn_nft_pid,
           [
-            Pair(concat(burn_nft_name, "01"), 1),
-            Pair(concat(burn_nft_name, "03"), 1),
-            Pair(concat(burn_nft_name, "06"), 1),
+            Pair(concat(burn_nft_name, "01"), -1),
+            Pair(concat(burn_nft_name, "03"), -1),
+            Pair(concat(burn_nft_name, "06"), -1),
           ],
         ),
       ],
@@ -106,7 +107,7 @@ test succeed_exchange_treasury_part_consume() {
 
   let user_output_1 =
     Output {
-      address: get_user_addr("0"),
+      address: get_user_addr("1"),
       value: from_asset(dist_asset_pid, dist_asset_name, n2a_change_rate),
       //^ 1 NFT from the second addr was burned
       datum: NoDatum,
@@ -138,36 +139,21 @@ test succeed_exchange_treasury_part_consume() {
       outputs: [user_output_0, user_output_1, script_output],
       mint: nft_burning,
     }
+
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
-  and {
-    empowa_swap.empowa_swap.mint(
-      dist_asset_pid: dist_asset_pid,
-      dist_asset_name: dist_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      unlock_unclaimed_assets_pcred: assets_owner_pcred,
-      redeemer: Exchange,
-      contract_policy_id: contract_policy_id,
-      tx: tx,
-    ),
-    empowa_swap.empowa_swap.spend(
-      //datum
-      None,
-      //utxo ref
-      Void,
-      dist_asset_pid: dist_asset_pid,
-      dist_asset_name: dist_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      unlock_unclaimed_assets_pcred: assets_owner_pcred,
-      redeemer: Exchange,
-      tx: tx,
-    ),
-  }
+  empowa_swap.empowa_swap.spend(
+    //datum
+    None,
+    dist_asset_pid: dist_asset_pid,
+    dist_asset_name: dist_asset_name,
+    burn_nft_pid: burn_nft_pid,
+    burn_nft_name: burn_nft_name,
+    n2a_change_rate: n2a_change_rate,
+    start_change_time: start_change_time,
+    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
+    unlock_unclaimed_assets_pcred: assets_owner_pcred,
+    redeemer: Exchange,
+    contract_utxo: utxo_contract_ref,
+    tx: tx,
+  )
 }
