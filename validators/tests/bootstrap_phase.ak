@@ -1,33 +1,31 @@
-use cardano/address.{Address, Script, VerificationKey}
 use cardano/assets.{add, from_asset, from_asset_list, from_lovelace}
-use cardano/transaction.{
-  Input, NoDatum, Output, OutputReference, Transaction, placeholder,
-}
-use config
-use empowa_swap.{Bootstrap, Exchange}
+use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
+use empowa_swap.{Bootstrap}
 use env.{
-  assets_owner_pcred, burn_nft_name, burn_nft_pid, contract_pcred,
-  contract_policy_id, contract_treasury_asset_name, dist_asset_name,
+  assets_owner_pcred, burn_nft_name, burn_nft_pid, contract_address,
+  contract_policy_id, contract_treasury_marker_name, dist_asset_name,
   dist_asset_pid, n2a_change_rate, start_change_time,
-  unlock_unclaimed_assets_time, utxo_def_ref,
+  unlock_unclaimed_assets_time, user_address, utxo_def_ref,
 }
+
+// This section contains a set of tests covering all edge cases related to treasury UTXO creation.
 
 test succeed_bootstrap() {
   // Treasury formation (sending assets, minting the marker token):
   // - Redeemer: Bootstrap.
   // - Inputs:
-  //   - ensure that `contract_policy_id.contract_treasury_asset_name` is not present in any input (it may only be minted);
+  //   - ensure that `contract_policy_id.contract_treasury_marker_name` is not present in any input (it may only be minted);
   // - Outputs:
-  //   - verify that N EMP are sent to the contract address along with the `contract_policy_id.contract_treasury_asset_name` asset;
+  //   - verify that N EMP are sent to the contract address along with the `contract_policy_id.contract_treasury_marker_name` asset;
   // - Minting:
-  //   - ensure that exactly 1 `contract_treasury_asset_name` was minted;
+  //   - ensure that exactly 1 `contract_treasury_marker_name` was minted;
   // - AmountLock:
   //   - it's not allowed to create a treasury with less than 10,000 EMP.
   let user_input_0 =
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_asset(dist_asset_pid, dist_asset_name, 10_000),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
@@ -39,7 +37,7 @@ test succeed_bootstrap() {
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_lovelace(5_000_000),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
@@ -49,7 +47,7 @@ test succeed_bootstrap() {
 
   let user_output =
     Output {
-      address: Address(assets_owner_pcred, None),
+      address: user_address,
       value: from_lovelace(2_000_000),
       datum: NoDatum,
       reference_script: None,
@@ -57,11 +55,11 @@ test succeed_bootstrap() {
 
   let script_output =
     Output {
-      address: Address(contract_pcred, None),
+      address: contract_address,
       value: from_asset_list(
         [
           Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)]),
-          Pair(contract_policy_id, [Pair(contract_treasury_asset_name, 1)]),
+          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
       datum: NoDatum,
@@ -69,7 +67,7 @@ test succeed_bootstrap() {
     }
 
   let mint_treasury_marker =
-    from_asset(contract_policy_id, contract_treasury_asset_name, 1)
+    from_asset(contract_policy_id, contract_treasury_marker_name, 1)
 
   let tx =
     Transaction {
@@ -96,7 +94,7 @@ test succeed_bootstrap() {
 
 test failed_bootstrap_wrong_inputs() fail {
   // - Inputs:
-  //   - ensure that `contract_policy_id.contract_treasury_asset_name` is not present in any input (it may only be minted);
+  //   - ensure that `contract_policy_id.contract_treasury_marker_name` is not present in any input (it may only be minted);
 
   // Can only be violated by splitting a treasury UTXO via input.
 
@@ -104,11 +102,11 @@ test failed_bootstrap_wrong_inputs() fail {
     Input(
       utxo_def_ref,
       Output {
-        address: Address(contract_pcred, None),
+        address: contract_address,
         value: from_asset_list(
           [
             Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)]),
-            Pair(contract_policy_id, [Pair(contract_treasury_asset_name, 1)]),
+            Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
         ),
         datum: NoDatum,
@@ -120,7 +118,7 @@ test failed_bootstrap_wrong_inputs() fail {
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_lovelace(5_000_000),
         datum: NoDatum,
         reference_script: None,
@@ -129,7 +127,7 @@ test failed_bootstrap_wrong_inputs() fail {
 
   let user_output =
     Output {
-      address: Address(assets_owner_pcred, None),
+      address: user_address,
       value: from_lovelace(2_000_000),
       datum: NoDatum,
       reference_script: None,
@@ -137,11 +135,11 @@ test failed_bootstrap_wrong_inputs() fail {
 
   let script_output_0 =
     Output {
-      address: Address(contract_pcred, None),
+      address: contract_address,
       value: from_asset_list(
         [
           Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)]),
-          Pair(contract_policy_id, [Pair(contract_treasury_asset_name, 1)]),
+          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
       datum: NoDatum,
@@ -150,11 +148,11 @@ test failed_bootstrap_wrong_inputs() fail {
 
   let script_output_1 =
     Output {
-      address: Address(contract_pcred, None),
+      address: contract_address,
       value: from_asset_list(
         [
           Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)]),
-          Pair(contract_policy_id, [Pair(contract_treasury_asset_name, 1)]),
+          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
       datum: NoDatum,
@@ -162,7 +160,7 @@ test failed_bootstrap_wrong_inputs() fail {
     }
 
   let mint_treasury_marker =
-    from_asset(contract_policy_id, contract_treasury_asset_name, 1)
+    from_asset(contract_policy_id, contract_treasury_marker_name, 1)
 
   let tx =
     Transaction {
@@ -189,7 +187,7 @@ test failed_bootstrap_wrong_inputs() fail {
 
 test failed_bootstrap_treasury_marker_stealing() fail {
   // - AmountLock:
-  //   - it's not allowed to create a treasury with `contract_policy_id.contract_treasury_asset_name` != 1 .
+  //   - it's not allowed to create a treasury with `contract_policy_id.contract_treasury_marker_name` != 1 .
 
   // If violated, a user could steal the treasury marker and misuse it.
   // Also protects against the case when a user forgets to add the marker to the script output.
@@ -198,7 +196,7 @@ test failed_bootstrap_treasury_marker_stealing() fail {
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_asset(dist_asset_pid, dist_asset_name, 10_000),
         datum: NoDatum,
         reference_script: None,
@@ -209,7 +207,7 @@ test failed_bootstrap_treasury_marker_stealing() fail {
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_lovelace(5_000_000),
         datum: NoDatum,
         reference_script: None,
@@ -218,16 +216,16 @@ test failed_bootstrap_treasury_marker_stealing() fail {
 
   let user_output =
     Output {
-      address: Address(assets_owner_pcred, None),
+      address: user_address,
       value: from_lovelace(2_000_000)
-        |> add(contract_policy_id, contract_treasury_asset_name, 1),
+        |> add(contract_policy_id, contract_treasury_marker_name, 1),
       datum: NoDatum,
       reference_script: None,
     }
 
   let script_output =
     Output {
-      address: Address(contract_pcred, None),
+      address: contract_address,
       value: from_asset_list(
         [Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)])],
       ),
@@ -236,7 +234,7 @@ test failed_bootstrap_treasury_marker_stealing() fail {
     }
 
   let mint_treasury_marker =
-    from_asset(contract_policy_id, contract_treasury_asset_name, 1)
+    from_asset(contract_policy_id, contract_treasury_marker_name, 1)
 
   let tx =
     Transaction {
@@ -271,7 +269,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_asset(dist_asset_pid, dist_asset_name, 5_000),
         datum: NoDatum,
         reference_script: None,
@@ -282,7 +280,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_lovelace(5_000_000),
         datum: NoDatum,
         reference_script: None,
@@ -291,7 +289,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
 
   let user_output =
     Output {
-      address: Address(assets_owner_pcred, None),
+      address: user_address,
       value: from_lovelace(2_000_000),
       datum: NoDatum,
       reference_script: None,
@@ -299,11 +297,11 @@ test failed_bootstrap_with_low_treasury_amount() fail {
 
   let script_output =
     Output {
-      address: Address(contract_pcred, None),
+      address: contract_address,
       value: from_asset_list(
         [
           Pair(dist_asset_pid, [Pair(dist_asset_name, 5_000)]),
-          Pair(contract_policy_id, [Pair(contract_treasury_asset_name, 1)]),
+          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
       datum: NoDatum,
@@ -311,7 +309,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
     }
 
   let mint_treasury_marker =
-    from_asset(contract_policy_id, contract_treasury_asset_name, 1)
+    from_asset(contract_policy_id, contract_treasury_marker_name, 1)
 
   let tx =
     Transaction {
@@ -338,7 +336,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
 
 test failed_bootstrap_treasury_marker_overmint() fail {
   // - Minting:
-  //   - ensure that exactly 1 `contract_policy_id.contract_treasury_asset_name` per script_output was minted;
+  //   - ensure that exactly 1 `contract_policy_id.contract_treasury_marker_name` per script_output was minted;
 
   // If violated, a user could steal the treasury marker and misuse it.
   // Also prevents accidental overminting of markers.
@@ -347,7 +345,7 @@ test failed_bootstrap_treasury_marker_overmint() fail {
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_asset(dist_asset_pid, dist_asset_name, 10_000),
         datum: NoDatum,
         reference_script: None,
@@ -358,7 +356,7 @@ test failed_bootstrap_treasury_marker_overmint() fail {
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_lovelace(5_000_000),
         datum: NoDatum,
         reference_script: None,
@@ -367,20 +365,20 @@ test failed_bootstrap_treasury_marker_overmint() fail {
 
   let user_output =
     Output {
-      address: Address(assets_owner_pcred, None),
+      address: user_address,
       value: from_lovelace(2_000_000)
-        |> add(contract_policy_id, contract_treasury_asset_name, 1),
+        |> add(contract_policy_id, contract_treasury_marker_name, 1),
       datum: NoDatum,
       reference_script: None,
     }
 
   let script_output =
     Output {
-      address: Address(contract_pcred, None),
+      address: contract_address,
       value: from_asset_list(
         [
           Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)]),
-          Pair(contract_policy_id, [Pair(contract_treasury_asset_name, 1)]),
+          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
       datum: NoDatum,
@@ -388,7 +386,7 @@ test failed_bootstrap_treasury_marker_overmint() fail {
     }
 
   let mint_treasury_marker =
-    from_asset(contract_policy_id, contract_treasury_asset_name, 2)
+    from_asset(contract_policy_id, contract_treasury_marker_name, 2)
 
   let tx =
     Transaction {
@@ -415,12 +413,12 @@ test failed_bootstrap_treasury_marker_overmint() fail {
 
 test failed_bootstrap_wrong_script_outputs() fail {
   // - Outputs:
-  //   - verify that N EMP are sent to the contract address along with the `contract_policy_id.contract_treasury_asset_name` asset;
+  //   - verify that N EMP are sent to the contract address along with the `contract_policy_id.contract_treasury_marker_name` asset;
   let user_input_0 =
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_asset(dist_asset_pid, dist_asset_name, 10_000),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
@@ -432,7 +430,7 @@ test failed_bootstrap_wrong_script_outputs() fail {
     Input(
       utxo_def_ref,
       Output {
-        address: Address(assets_owner_pcred, None),
+        address: user_address,
         value: from_lovelace(5_000_000),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
@@ -442,15 +440,15 @@ test failed_bootstrap_wrong_script_outputs() fail {
 
   let user_output =
     Output {
-      address: Address(assets_owner_pcred, None),
+      address: user_address,
       value: from_lovelace(5_000_000)
-        |> add(contract_policy_id, contract_treasury_asset_name, 1),
+        |> add(contract_policy_id, contract_treasury_marker_name, 1),
       datum: NoDatum,
       reference_script: None,
     }
 
   let mint_treasury_marker =
-    from_asset(contract_policy_id, contract_treasury_asset_name, 1)
+    from_asset(contract_policy_id, contract_treasury_marker_name, 1)
 
   let tx =
     Transaction {
@@ -474,19 +472,3 @@ test failed_bootstrap_wrong_script_outputs() fail {
     tx: tx,
   )
 }
-// test burning_success() {
-//   empowa_swap.empowa_swap.spend(
-//     dist_asset_pid,
-//     dist_asset_name,
-//     nft_pid,
-//     nft_name,
-//     n2a_change_rate,
-//     start_change_time,
-//     unlock_unclaimed_assets_time,
-//     assets_owner_pcred,
-//     None,
-//     Exchange,
-//     Void,
-//     placeholder,
-//   )
-// }

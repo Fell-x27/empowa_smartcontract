@@ -16,4 +16,4 @@ version = "v2.2.0"
 source = "github"
 
 [config.default]
-contract_treasury_asset_name = "TRS"
+contract_treasury_marker_name = "TRS"

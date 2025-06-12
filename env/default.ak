@@ -1,4 +1,4 @@
-use cardano/address.{Script, VerificationKey}
+use cardano/address.{Address, Script, VerificationKey}
 use cardano/transaction.{OutputReference}
 use config
 
@@ -20,10 +20,18 @@ pub const unlock_unclaimed_assets_time = 10
 
 pub const assets_owner_pcred = VerificationKey("EMP owner")
 
+pub const user_pcred = VerificationKey("Some user")
+
 pub const contract_policy_id = "BURNER"
 
 pub const contract_pcred = Script(contract_policy_id)
 
-pub const contract_treasury_asset_name = config.contract_treasury_asset_name
+pub const contract_treasury_marker_name = config.contract_treasury_marker_name
 
 pub const utxo_def_ref = OutputReference("", 0)
+
+pub const user_address = Address(user_pcred, None)
+
+pub const contract_address = Address(contract_pcred, None)
+
+pub const owner_address = Address(assets_owner_pcred, None)
