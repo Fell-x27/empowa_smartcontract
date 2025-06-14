@@ -3,8 +3,8 @@ use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
 use empowa_swap.{Bootstrap}
 use env.{
   assets_owner_pcred, burn_nft_name, burn_nft_pid, contract_address,
-  contract_policy_id, contract_treasury_marker_name, dist_asset_name,
-  dist_asset_pid, n2a_change_rate, start_change_time,
+  contract_policy_id, contract_treasury_marker_name, n2a_change_rate,
+  payout_asset_name, payout_asset_pid, start_change_time,
   unlock_unclaimed_assets_time, user_address, utxo_def_ref,
 }
 
@@ -26,7 +26,7 @@ test succeed_bootstrap() {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_asset(dist_asset_pid, dist_asset_name, 10_000),
+        value: from_asset(payout_asset_pid, payout_asset_name, 10_000),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
         reference_script: None,
@@ -58,7 +58,7 @@ test succeed_bootstrap() {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)]),
+          Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -78,8 +78,8 @@ test succeed_bootstrap() {
     }
 
   empowa_swap.empowa_swap.mint(
-    dist_asset_pid: dist_asset_pid,
-    dist_asset_name: dist_asset_name,
+    payout_asset_pid: payout_asset_pid,
+    payout_asset_name: payout_asset_name,
     burn_nft_pid: burn_nft_pid,
     burn_nft_name: burn_nft_name,
     n2a_change_rate: n2a_change_rate,
@@ -105,7 +105,7 @@ test failed_bootstrap_wrong_inputs() fail {
         address: contract_address,
         value: from_asset_list(
           [
-            Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)]),
+            Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
         ),
@@ -138,7 +138,7 @@ test failed_bootstrap_wrong_inputs() fail {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)]),
+          Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -151,7 +151,7 @@ test failed_bootstrap_wrong_inputs() fail {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)]),
+          Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -171,8 +171,8 @@ test failed_bootstrap_wrong_inputs() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    dist_asset_pid: dist_asset_pid,
-    dist_asset_name: dist_asset_name,
+    payout_asset_pid: payout_asset_pid,
+    payout_asset_name: payout_asset_name,
     burn_nft_pid: burn_nft_pid,
     burn_nft_name: burn_nft_name,
     n2a_change_rate: n2a_change_rate,
@@ -197,7 +197,7 @@ test failed_bootstrap_treasury_marker_stealing() fail {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_asset(dist_asset_pid, dist_asset_name, 10_000),
+        value: from_asset(payout_asset_pid, payout_asset_name, 10_000),
         datum: NoDatum,
         reference_script: None,
       },
@@ -227,7 +227,7 @@ test failed_bootstrap_treasury_marker_stealing() fail {
     Output {
       address: contract_address,
       value: from_asset_list(
-        [Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)])],
+        [Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)])],
       ),
       datum: NoDatum,
       reference_script: None,
@@ -245,8 +245,8 @@ test failed_bootstrap_treasury_marker_stealing() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    dist_asset_pid: dist_asset_pid,
-    dist_asset_name: dist_asset_name,
+    payout_asset_pid: payout_asset_pid,
+    payout_asset_name: payout_asset_name,
     burn_nft_pid: burn_nft_pid,
     burn_nft_name: burn_nft_name,
     n2a_change_rate: n2a_change_rate,
@@ -270,7 +270,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_asset(dist_asset_pid, dist_asset_name, 5_000),
+        value: from_asset(payout_asset_pid, payout_asset_name, 5_000),
         datum: NoDatum,
         reference_script: None,
       },
@@ -300,7 +300,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(dist_asset_pid, [Pair(dist_asset_name, 5_000)]),
+          Pair(payout_asset_pid, [Pair(payout_asset_name, 5_000)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -320,8 +320,8 @@ test failed_bootstrap_with_low_treasury_amount() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    dist_asset_pid: dist_asset_pid,
-    dist_asset_name: dist_asset_name,
+    payout_asset_pid: payout_asset_pid,
+    payout_asset_name: payout_asset_name,
     burn_nft_pid: burn_nft_pid,
     burn_nft_name: burn_nft_name,
     n2a_change_rate: n2a_change_rate,
@@ -346,7 +346,7 @@ test failed_bootstrap_treasury_marker_overmint() fail {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_asset(dist_asset_pid, dist_asset_name, 10_000),
+        value: from_asset(payout_asset_pid, payout_asset_name, 10_000),
         datum: NoDatum,
         reference_script: None,
       },
@@ -377,7 +377,7 @@ test failed_bootstrap_treasury_marker_overmint() fail {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(dist_asset_pid, [Pair(dist_asset_name, 10_000)]),
+          Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -397,8 +397,8 @@ test failed_bootstrap_treasury_marker_overmint() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    dist_asset_pid: dist_asset_pid,
-    dist_asset_name: dist_asset_name,
+    payout_asset_pid: payout_asset_pid,
+    payout_asset_name: payout_asset_name,
     burn_nft_pid: burn_nft_pid,
     burn_nft_name: burn_nft_name,
     n2a_change_rate: n2a_change_rate,
@@ -419,7 +419,7 @@ test failed_bootstrap_wrong_script_outputs() fail {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_asset(dist_asset_pid, dist_asset_name, 10_000),
+        value: from_asset(payout_asset_pid, payout_asset_name, 10_000),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
         reference_script: None,
@@ -459,8 +459,8 @@ test failed_bootstrap_wrong_script_outputs() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    dist_asset_pid: dist_asset_pid,
-    dist_asset_name: dist_asset_name,
+    payout_asset_pid: payout_asset_pid,
+    payout_asset_name: payout_asset_name,
     burn_nft_pid: burn_nft_pid,
     burn_nft_name: burn_nft_name,
     n2a_change_rate: n2a_change_rate,

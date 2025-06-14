@@ -4,9 +4,9 @@ use config
 
 // A set of constants defined here to simplify writing tests
 
-pub const dist_asset_pid = "EMP_policy_id"
+pub const payout_asset_pid = "EMP_policy_id"
 
-pub const dist_asset_name = "EMP"
+pub const payout_asset_name = "EMP"
 
 pub const burn_nft_pid = "NFT_policy_id"
 

@@ -1,7 +1,7 @@
 use aiken/collection/dict.{filter as d_filter, values}
 use aiken/collection/list.{
   all, any, difference, filter as l_filter, foldl as l_foldl, has, length,
-  map as l_map, reduce, sort,
+  map as l_map, reduce as l_reduce, sort,
 }
 use aiken/primitive/bytearray.{starts_with}
 use cardano/address.{Address, PaymentCredential, Script, VerificationKey}
@@ -39,8 +39,8 @@ fn sort_payouts_by_addr(
 }
 
 validator empowa_swap(
-  dist_asset_pid: PolicyId,
-  dist_asset_name: AssetName,
+  payout_asset_pid: PolicyId,
+  payout_asset_name: AssetName,
   burn_nft_pid: PolicyId,
   burn_nft_name: AssetName,
   n2a_change_rate: Int,
@@ -59,6 +59,9 @@ validator empowa_swap(
 
     expect Some(Input { output: Output { address: contract_address, .. }, .. }) =
       find_input(tx_inputs, contract_utxo)
+
+    expect Address { payment_credential: Script(contract_policy_id), .. } =
+      contract_address
 
     when redeemer is {
       Exchange -> {
@@ -137,7 +140,10 @@ validator empowa_swap(
                           },
                         )
                       |> values()
-                      |> reduce(0, fn(sum, val) { sum + val * n2a_change_rate }),
+                      |> l_reduce(
+                          0,
+                          fn(sum, val) { sum + val * n2a_change_rate },
+                        ),
                   )
                 },
               )
@@ -155,27 +161,88 @@ validator empowa_swap(
                 Int> {
                   Pair(
                     output_addr,
-                    quantity_of(output_val, dist_asset_pid, dist_asset_name),
+                    quantity_of(output_val, payout_asset_pid, payout_asset_name),
                   )
                 },
               )
             |> sort_payouts_by_addr()
-
+        // Then compare actual payouts with expected ones
         let payouts_are_valid = real_payouts == expected_payouts
 
-        // Then compare actual payouts with expected ones
+        // - Inputs:
+        // - Outputs:
+        //   - Ensure that the EMP difference between the contract's `tx_outputs` and `tx_inputs` equals the sum of all user payouts.
+        //   - Ensure that no excess base ADA was withdrawn from the contract address, if any is present.
+        //   - Ensure that there are no other than `contract_policy_id.contract_treasury_marker_name` tokens in the `burned_markers`
+        //First, collect all contrac's inputs and calculate input EMPs
+        let contract_input_payout_assets_amount =
+          tx_inputs
+            |> l_filter(
+                fn(Input { output: Output { address, .. }, .. }) {
+                  address == contract_address
+                },
+              )
+            |> l_reduce(
+                0,
+                fn(sum, Input { output: Output { value, .. }, .. }) {
+                  if quantity_of(
+                    value,
+                    contract_policy_id,
+                    contract_treasury_marker_name,
+                  ) == 1 {
+                    sum + quantity_of(
+                      value,
+                      payout_asset_pid,
+                      payout_asset_name,
+                    )
+                  } else {
+                    sum
+                  }
+                },
+              )
+        //The same sor contract's outputs
+        let contract_output_payout_assets_amount =
+          tx_outputs
+            |> l_filter(
+                fn(Output { address, .. }) { address == contract_address },
+              )
+            |> l_reduce(
+                0,
+                fn(sum, Output { value, .. }) {
+                  if quantity_of(
+                    value,
+                    contract_policy_id,
+                    contract_treasury_marker_name,
+                  ) == 1 {
+                    sum + quantity_of(
+                      value,
+                      payout_asset_pid,
+                      payout_asset_name,
+                    )
+                  } else {
+                    sum
+                  }
+                },
+              )
+
+        // Calculate the real sum to be paid
+        let real_payouts_sum =
+          real_payouts
+            |> l_reduce(0, fn(sum, Pair(_, amount)) { sum + amount })
+
+        let contract_payout_is_fine =
+          contract_input_payout_assets_amount - contract_output_payout_assets_amount == real_payouts_sum
         and {
+          contract_payout_is_fine?,
           mint_is_valid?,
           payouts_are_valid?,
         }
       }
       //   - Burning `contract_policy_id.contract_treasury_marker_name` is required if the treasury UTXO was fully consumed and emptied.
       // - Outputs:
-      //   - Ensure that the EMP difference between the contract's `tx_outputs` and `tx_inputs` equals the sum of all user payouts.
       //   - If multiple treasuries were used as `tx_inputs` (because one was insufficient),
       //     only one or none may remain in the `tx_outputs`.
       //   - Ensure that there is at most one contract output with `contract_policy_id.contract_treasury_marker_name` (exactly one item if any).
-      //   - Ensure that no excess base ADA was withdrawn from the contract address, if any is present.
       Recall ->
         // Treasury destruction (recalling EMP and unlocking base ADA):
         //  Minting:
@@ -231,8 +298,8 @@ validator empowa_swap(
                     ) == 1)?,
                     (quantity_of(
                       script_output_value,
-                      dist_asset_pid,
-                      dist_asset_name,
+                      payout_asset_pid,
+                      payout_asset_name,
                     ) >= 10_000)?,
                   }
                 },
@@ -261,7 +328,7 @@ validator empowa_swap(
         // - Redeemer: Recall.
         // - Minting:
         //   - burning is allowed only after `unlock_unclaimed_assets_time`,
-        //     or if the treasury UTXO contains no `dist_asset_pid.dist_asset_name` tokens;
+        //     or if the treasury UTXO contains no `payout_asset_pid.payout_asset_name` tokens;
         // - Outputs:
         //   - ensure that the only output goes to the address associated with `assets_owner_pcred`;
         //   - ensure that there are no tx_outputs containing `contract_policy_id.contract_treasury_marker_name`.
