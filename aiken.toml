@@ -17,3 +17,4 @@ source = "github"
 
 [config.default]
 contract_treasury_marker_name = "TRS"
+contract_treasury_lovelace = 5_000_000

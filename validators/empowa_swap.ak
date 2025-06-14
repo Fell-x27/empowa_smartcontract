@@ -5,11 +5,13 @@ use aiken/collection/list.{
 }
 use aiken/primitive/bytearray.{starts_with}
 use cardano/address.{Address, PaymentCredential, Script, VerificationKey}
-use cardano/assets.{AssetName, PolicyId, flatten, policies, quantity_of, tokens}
+use cardano/assets.{
+  AssetName, PolicyId, flatten, lovelace_of, policies, quantity_of, tokens,
+}
 use cardano/transaction.{
   Input, Output, OutputReference, Transaction, find_input, find_script_outputs,
 }
-use config.{contract_treasury_marker_name}
+use config.{contract_treasury_lovelace, contract_treasury_marker_name}
 
 pub type Action {
   Bootstrap
@@ -38,6 +40,28 @@ fn sort_payouts_by_addr(
       )
 }
 
+fn to_outputs(inputs: List<Input>) -> List<Output> {
+  inputs
+    |> l_map(fn(Input { output, .. }) { output })
+}
+
+fn find_outputs_by_address(
+  outputs: List<Output>,
+  address: Address,
+  invert: Bool,
+) -> List<Output> {
+  outputs
+    |> l_filter(
+        fn(Output { address: out_address, .. }) {
+          if invert {
+            address != out_address
+          } else {
+            address == out_address
+          }
+        },
+      )
+}
+
 validator empowa_swap(
   payout_asset_pid: PolicyId,
   payout_asset_name: AssetName,
@@ -46,7 +70,7 @@ validator empowa_swap(
   n2a_change_rate: Int,
   start_change_time: Int,
   unlock_unclaimed_assets_time: Int,
-  unlock_unclaimed_assets_pcred: PaymentCredential,
+  owner_address: Address,
 ) {
   spend(_d, redeemer: Action, contract_utxo: OutputReference, tx: Transaction) {
     // Contract treasury using validation
@@ -71,15 +95,18 @@ validator empowa_swap(
         //     match the number and type of burned NFTs.
         let flatten_mint = flatten(tx_mint)
 
-        // Check that no malicious minting occurred (e.g., extra free NFTs)
+        // Check that no malicious minting occurred (e.g., extra free NFTs, `contract_policy_id.another_asset`)
         let mint_is_valid =
           flatten_mint
             |> all(
-                fn((policy_id, asset_name, burned_amount)) {
+                fn((policy_id, asset_name, mint_amount)) {
                   and {
-                    (burned_amount < 0)?,
+                    (mint_amount < 0)?,
                     or {
-                      policy_id == contract_policy_id,
+                      and {
+                        policy_id == contract_policy_id,
+                        asset_name == contract_treasury_marker_name,
+                      },
                       and {
                         policy_id == burn_nft_pid,
                         starts_with(asset_name, burn_nft_name),
@@ -100,9 +127,6 @@ validator empowa_swap(
                   }
                 },
               )
-        let burned_markers =
-          flatten_mint
-            |> difference(burned_nfts)
 
         // - Inputs:
         //   - Collect the list of addresses holding `burn_nft_pid` NFTs with names starting with `burn_nft_name`,
@@ -113,16 +137,14 @@ validator empowa_swap(
         // - Outputs:
         //   - Ensure that all user `tx_outputs` match their corresponding `tx_inputs` (NFT holders),
         //     both by address and by the expected payout amount calculated from the burned NFTs.
+        //
         // Build a list of addresses which hold burned nfts
         let expected_payouts =
           tx_inputs
+            |> to_outputs()
+            |> find_outputs_by_address(contract_address, invert: True)
             |> l_map(
-                fn(
-                  Input {
-                    output: Output { address: input_addr, value: input_val, .. },
-                    ..
-                  },
-                ) -> Pair<Address, Int> {
+                fn(Output { address: input_addr, value: input_val, .. }) {
                   Pair(
                     input_addr,
                     input_val
@@ -153,9 +175,7 @@ validator empowa_swap(
         // Then fetch actual payouts
         let real_payouts =
           tx_outputs
-            |> l_filter(
-                fn(Output { address, .. }) { address != contract_address },
-              )
+            |> find_outputs_by_address(contract_address, invert: True)
             |> l_map(
                 fn(Output { address: output_addr, value: output_val, .. }) -> Pair<Address,
                 Int> {
@@ -174,57 +194,39 @@ validator empowa_swap(
         // - Outputs:
         //   - Ensure that the EMP difference between the contract's `tx_outputs` and `tx_inputs` equals the sum of all user payouts.
         //   - Ensure that no excess base ADA was withdrawn from the contract address, if any is present.
-        //   - Ensure that there are no other than `contract_policy_id.contract_treasury_marker_name` tokens in the `burned_markers`
         //First, collect all contrac's inputs and calculate input EMPs
+        let get_payout_assets_sum =
+          fn(outputs: List<Output>) -> Int {
+            outputs
+              |> l_reduce(
+                  0,
+                  fn(sum, Output { value, .. }) {
+                    if quantity_of(
+                      value,
+                      contract_policy_id,
+                      contract_treasury_marker_name,
+                    ) == 1 {
+                      sum + quantity_of(
+                        value,
+                        payout_asset_pid,
+                        payout_asset_name,
+                      )
+                    } else {
+                      fail @"Invalid UTXO"
+                    }
+                  },
+                )
+          }
         let contract_input_payout_assets_amount =
           tx_inputs
-            |> l_filter(
-                fn(Input { output: Output { address, .. }, .. }) {
-                  address == contract_address
-                },
-              )
-            |> l_reduce(
-                0,
-                fn(sum, Input { output: Output { value, .. }, .. }) {
-                  if quantity_of(
-                    value,
-                    contract_policy_id,
-                    contract_treasury_marker_name,
-                  ) == 1 {
-                    sum + quantity_of(
-                      value,
-                      payout_asset_pid,
-                      payout_asset_name,
-                    )
-                  } else {
-                    sum
-                  }
-                },
-              )
-        //The same sor contract's outputs
+            |> to_outputs()
+            |> find_outputs_by_address(contract_address, invert: False)
+            |> get_payout_assets_sum()
+        //The same for the contract's outputs
         let contract_output_payout_assets_amount =
           tx_outputs
-            |> l_filter(
-                fn(Output { address, .. }) { address == contract_address },
-              )
-            |> l_reduce(
-                0,
-                fn(sum, Output { value, .. }) {
-                  if quantity_of(
-                    value,
-                    contract_policy_id,
-                    contract_treasury_marker_name,
-                  ) == 1 {
-                    sum + quantity_of(
-                      value,
-                      payout_asset_pid,
-                      payout_asset_name,
-                    )
-                  } else {
-                    sum
-                  }
-                },
-              )
+            |> find_outputs_by_address(contract_address, invert: False)
+            |> get_payout_assets_sum()
 
         // Calculate the real sum to be paid
         let real_payouts_sum =
@@ -234,10 +236,29 @@ validator empowa_swap(
         let contract_payout_is_fine =
           contract_input_payout_assets_amount - contract_output_payout_assets_amount == real_payouts_sum
 
+        // If any treasury was consumed and its marker burned, ensure that any remaining base ADA from it was sent to the owner.
+        let burned_markers_count =
+          flatten_mint
+            |> difference(burned_nfts)
+            |> length()
+
+        let treasury_ada_sent_back_properly =
+          if burned_markers_count == 0 {
+            True
+          } else {
+            // Ensure that there is an owner-related output
+            expect [owner_output] =
+              tx_outputs
+                |> find_outputs_by_address(owner_address, invert: False)
+
+            lovelace_of(owner_output.value) == burned_markers_count * contract_treasury_lovelace
+          }
+
         and {
           contract_payout_is_fine?,
           mint_is_valid?,
           payouts_are_valid?,
+          treasury_ada_sent_back_properly?,
         }
       }
       //   - Burning `contract_policy_id.contract_treasury_marker_name` is required if the treasury UTXO was fully consumed and emptied.
