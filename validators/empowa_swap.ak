@@ -75,16 +75,16 @@ validator empowa_swap(
         let mint_is_valid =
           flatten_mint
             |> all(
-                fn((policy_id, asset_name, amount)) {
+                fn((policy_id, asset_name, burned_amount)) {
                   and {
-                    (amount < 0)?,
+                    (burned_amount < 0)?,
                     or {
+                      policy_id == contract_policy_id,
                       and {
-                        (policy_id == burn_nft_pid)?,
-                        starts_with(asset_name, burn_nft_name)?,
+                        policy_id == burn_nft_pid,
+                        starts_with(asset_name, burn_nft_name),
                       },
-                      (policy_id == contract_treasury_marker_name)?,
-                    },
+                    }?,
                   }
                 },
               )
@@ -95,8 +95,8 @@ validator empowa_swap(
                 //Check if partition is better
                 fn((policy_id, asset_name, _)) {
                   and {
-                    (policy_id == burn_nft_pid)?,
-                    starts_with(asset_name, burn_nft_name)?,
+                    policy_id == burn_nft_pid,
+                    starts_with(asset_name, burn_nft_name),
                   }
                 },
               )
@@ -165,6 +165,7 @@ validator empowa_swap(
                   )
                 },
               )
+            |> l_filter(fn(Pair(_, amount)) { amount > 0 })
             |> sort_payouts_by_addr()
         // Then compare actual payouts with expected ones
         let payouts_are_valid = real_payouts == expected_payouts
@@ -232,9 +233,7 @@ validator empowa_swap(
 
         let contract_payout_is_fine =
           contract_input_payout_assets_amount - contract_output_payout_assets_amount == real_payouts_sum
-        trace contract_input_payout_assets_amount
-        trace contract_output_payout_assets_amount
-        trace real_payouts_sum
+
         and {
           contract_payout_is_fine?,
           mint_is_valid?,
