@@ -232,6 +232,9 @@ validator empowa_swap(
 
         let contract_payout_is_fine =
           contract_input_payout_assets_amount - contract_output_payout_assets_amount == real_payouts_sum
+        trace contract_input_payout_assets_amount
+        trace contract_output_payout_assets_amount
+        trace real_payouts_sum
         and {
           contract_payout_is_fine?,
           mint_is_valid?,
