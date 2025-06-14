@@ -1,4 +1,4 @@
-use aiken/collection/dict.{filter as d_filter, values}
+use aiken/collection/dict.{filter as d_filter, keys, to_pairs, values}
 use aiken/collection/list.{
   all, any, difference, filter as l_filter, foldl as l_foldl, has, length,
   map as l_map, reduce as l_reduce, sort,
@@ -138,7 +138,7 @@ validator empowa_swap(
         //   - Ensure that all user `tx_outputs` match their corresponding `tx_inputs` (NFT holders),
         //     both by address and by the expected payout amount calculated from the burned NFTs.
         //
-        // Build a list of addresses which hold burned nfts
+        // Build a list of addresses which hold burned nfts and calculate expected payouts
         let expected_payouts =
           tx_inputs
             |> to_outputs()
