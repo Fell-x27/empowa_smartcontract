@@ -62,6 +62,42 @@ fn find_outputs_by_address(
       )
 }
 
+fn validate_optimality(
+  outputs_list: List<Output>,
+  policy_id: PolicyId,
+  asset_name: AssetName,
+  optimal_amount: Int,
+  start_sum: Int,
+) -> Bool {
+  // We need to check the optimality of the outputs.
+  // Iterate through them, accumulating their value.
+  // At each iteration, check whether the accumulated sum satisfies the condition and whether there are remaining elements:
+  // - either the sum is satisfied and no elements are left,
+  // - or elements remain and the sum is not yet satisfied.
+  when outputs_list is {
+    [Output { value, .. }, ..xs] -> {
+      let length_xs = length(xs)
+      let start_sum = start_sum + quantity_of(value, policy_id, asset_name)
+      if start_sum >= optimal_amount && (
+        length_xs == 0 || length(outputs_list) == 1
+      ) {
+        True
+      } else if start_sum < optimal_amount && length_xs != 0 {
+        validate_optimality(
+          xs,
+          policy_id,
+          asset_name,
+          optimal_amount,
+          start_sum,
+        )
+      } else {
+        False
+      }
+    }
+    [] -> fail
+  }
+}
+
 validator empowa_swap(
   payout_asset_pid: PolicyId,
   payout_asset_name: AssetName,
@@ -191,10 +227,16 @@ validator empowa_swap(
         let payouts_are_valid = real_payouts == expected_payouts
 
         // - Inputs:
+        //   - Ensure that there are no redundant treqsury-UTXO
         // - Outputs:
         //   - Ensure that the EMP difference between the contract's `tx_outputs` and `tx_inputs` equals the sum of all user payouts.
         //   - Ensure that no excess base ADA was withdrawn from the contract address, if any is present.
-        //First, collect all contrac's inputs and calculate input EMPs
+        //
+        // Calculate the real sum to be paid
+        let real_payouts_sum =
+          real_payouts
+            |> l_reduce(0, fn(sum, Pair(_, amount)) { sum + amount })
+        //Collect all contrac's inputs and calculate input EMPs
         let get_payout_assets_sum =
           fn(outputs: List<Output>) -> Int {
             outputs
@@ -217,10 +259,23 @@ validator empowa_swap(
                   },
                 )
           }
-        let contract_input_payout_assets_amount =
+
+        let contract_inputs_outs =
           tx_inputs
             |> to_outputs()
             |> find_outputs_by_address(contract_address, invert: False)
+
+        let are_contract_inputs_optimal =
+          contract_inputs_outs
+            |> validate_optimality(
+                payout_asset_pid,
+                payout_asset_name,
+                real_payouts_sum,
+                0,
+              )
+
+        let contract_input_payout_assets_amount =
+          contract_inputs_outs
             |> get_payout_assets_sum()
         //The same for the contract's outputs
         let contract_output_payout_assets_amount =
@@ -228,14 +283,12 @@ validator empowa_swap(
             |> find_outputs_by_address(contract_address, invert: False)
             |> get_payout_assets_sum()
 
-        // Calculate the real sum to be paid
-        let real_payouts_sum =
-          real_payouts
-            |> l_reduce(0, fn(sum, Pair(_, amount)) { sum + amount })
-
         let contract_payout_is_fine =
           contract_input_payout_assets_amount - contract_output_payout_assets_amount == real_payouts_sum
 
+        // trace contract_input_payout_assets_amount
+        // trace contract_output_payout_assets_amount
+        // trace real_payouts_sum
         // If any treasury was consumed and its marker burned, ensure that any remaining base ADA from it was sent to the owner.
         let burned_markers_count =
           flatten_mint
@@ -255,6 +308,7 @@ validator empowa_swap(
           }
 
         and {
+          are_contract_inputs_optimal?,
           contract_payout_is_fine?,
           mint_is_valid?,
           payouts_are_valid?,
@@ -361,7 +415,9 @@ validator empowa_swap(
         // Exchange (sending EMP): 
         // - Ensure that the burned `contract_policy_id.contract_treasury_marker_name` comes from the single UTXO sent to the contract address.        
 
-        todo @"Exchange mint not implemented"
+        // todo @"Exchange mint not implemented"
+        //temporary true
+        True
     }
   }
 
