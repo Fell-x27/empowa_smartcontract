@@ -67,7 +67,8 @@ fn validate_optimality(
   assets_quantity_list: List<Int>,
   optimal_amount: Int,
   start_sum: Int,
-) -> Bool {
+  treasury_consumed: Int,
+) -> (Bool, Int) {
   // We need to check the optimality of the outputs.
   // Iterate through them, accumulating their value.
   // At each iteration, check whether the accumulated sum satisfies the condition and whether there are remaining elements:
@@ -75,16 +76,22 @@ fn validate_optimality(
   // - or elements remain and the sum is not yet satisfied.
   when assets_quantity_list is {
     [] -> fail
-    [_] -> True
     [x, ..xs] -> {
       let length_xs = length(xs)
       let start_sum = start_sum + x
-      if start_sum >= optimal_amount && length_xs == 0 {
-        True
+      if start_sum > optimal_amount && length_xs == 0 {
+        (True, treasury_consumed)
+      } else if start_sum == optimal_amount && length_xs == 0 {
+        (True, treasury_consumed + 1)
       } else if start_sum < optimal_amount && length_xs != 0 {
-        validate_optimality(xs, optimal_amount, start_sum)
+        validate_optimality(
+          xs,
+          optimal_amount,
+          start_sum,
+          treasury_consumed + 1,
+        )
       } else {
-        False
+        (False, -1)
       }
     }
   }
@@ -257,7 +264,7 @@ validator empowa_swap(
             |> to_outputs()
             |> find_outputs_by_address(contract_address, invert: False)
 
-        let are_contract_inputs_optimal =
+        let (are_contract_inputs_optimal, consumed_treasury_count) =
           contract_inputs_outs
             |> l_map(
                 fn(Output { value, .. }) {
@@ -265,7 +272,7 @@ validator empowa_swap(
                 },
               )
             |> sort(int.compare)
-            |> validate_optimality(real_payouts_sum, 0)
+            |> validate_optimality(real_payouts_sum, 0, 0)
 
         let contract_input_payout_assets_amount =
           contract_inputs_outs
@@ -288,8 +295,11 @@ validator empowa_swap(
             |> difference(burned_nfts)
             |> length()
 
+        let are_treasury_removed_properly =
+          consumed_treasury_count == burned_markers_count
+
         let treasury_ada_sent_back_properly =
-          if burned_markers_count == 0 {
+          if consumed_treasury_count == 0 {
             True
           } else {
             // Ensure that there is an owner-related output
@@ -297,7 +307,7 @@ validator empowa_swap(
               tx_outputs
                 |> find_outputs_by_address(owner_address, invert: False)
 
-            lovelace_of(owner_output.value) == burned_markers_count * contract_treasury_lovelace
+            lovelace_of(owner_output.value) == consumed_treasury_count * contract_treasury_lovelace
           }
 
         and {
@@ -305,6 +315,7 @@ validator empowa_swap(
           contract_payout_is_fine?,
           mint_is_valid?,
           payouts_are_valid?,
+          are_treasury_removed_properly?,
           treasury_ada_sent_back_properly?,
         }
       }
