@@ -1,4 +1,5 @@
 use aiken/collection/list
+use aiken/interval.{after, before, entirely_after, entirely_before}
 use aiken/primitive/bytearray.{concat}
 use cardano/address.{Address, VerificationKey}
 use cardano/assets.{
@@ -146,6 +147,7 @@ test succeed_exchange_treasury_part_consume() {
       inputs: [user_input_0, user_input_1, script_input],
       outputs: [user_output_0, user_output_1, script_output],
       mint: nft_burning,
+      validity_range: entirely_after(start_change_time),
     }
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
@@ -290,6 +292,7 @@ test succeed_exchange_treasury_full_consume() {
       inputs: [user_input_0, user_input_1, script_input],
       outputs: [user_output_0, user_output_1, owner_output],
       mint: nft_and_marker_burning,
+      validity_range: entirely_after(start_change_time),
     }
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
@@ -492,6 +495,7 @@ test succeed_exchange_treasury_hybrid_consume() {
       inputs: [user_input_0, user_input_1, script_input_0, script_input_1],
       outputs: [user_output_0, user_output_1, owner_output, contract_output],
       mint: nft_and_marker_burning,
+      validity_range: entirely_after(start_change_time),
     }
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
@@ -525,6 +529,154 @@ test succeed_exchange_treasury_hybrid_consume() {
       tx: tx,
     ),
   }
+}
+
+test failed_exchange_before_start_time() fail {
+  // The user provides their own UTXOs as inputs, some of which contain assets with names starting with `burn_nft_pid.burn_nft_name*`.
+  let user_input_0 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: get_user_addr("0"),
+        value: from_asset_list(
+          [
+            Pair(
+              burn_nft_pid,
+              [
+                Pair(concat(burn_nft_name, "01"), 1),
+                Pair(concat(burn_nft_name, "02"), 1),
+                Pair(concat(burn_nft_name, "03"), 1),
+              ],
+            ),
+            Pair("any_another_nft", [Pair("any_asset", 10)]),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  let user_input_1 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: get_user_addr("1"),
+        value: from_asset_list(
+          [
+            Pair(
+              burn_nft_pid,
+              [
+                Pair(concat(burn_nft_name, "04"), 1),
+                Pair(concat(burn_nft_name, "05"), 1),
+                Pair(concat(burn_nft_name, "06"), 1),
+              ],
+            ),
+            Pair("any_another_nft", [Pair("any_asset", 10)]),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
+  let script_input =
+    Input(
+      utxo_contract_ref,
+      Output {
+        address: contract_address,
+        value: from_asset_list(
+          [
+            Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
+            Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  // The user requests to burn some of their NFTs (not necessarily all of them).
+  let nft_burning =
+    from_asset_list(
+      [
+        Pair(
+          burn_nft_pid,
+          [
+            Pair(concat(burn_nft_name, "01"), -1),
+            Pair(concat(burn_nft_name, "03"), -1),
+            Pair(concat(burn_nft_name, "06"), -1),
+          ],
+        ),
+      ],
+    )
+
+  // The user expects to receive EMP according to the established exchange rate.
+  let user_output_0 =
+    Output {
+      address: get_user_addr("0"),
+      value: from_asset(
+        payout_asset_pid,
+        payout_asset_name,
+        n2a_change_rate * 2,
+      ),
+      //^ 2 NFTs from the first addr were burned
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let user_output_1 =
+    Output {
+      address: get_user_addr("1"),
+      value: from_asset(payout_asset_pid, payout_asset_name, n2a_change_rate),
+      //^ 1 NFT from the second addr was burned
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  // The contract expects the change (leftover EMP) to be returned to a treasury UTXO, marked with a treasury marker.
+  let script_output =
+    Output {
+      address: contract_address,
+      value: from_asset_list(
+        [
+          Pair(
+            payout_asset_pid,
+            [Pair(payout_asset_name, 10_000 - n2a_change_rate * 3)],
+          ),
+          // ^ 3 NFTs were burned; the treasury balance was reduced accordingly.
+          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+        ],
+      ),
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let tx =
+    Transaction {
+      ..placeholder,
+      inputs: [user_input_0, user_input_1, script_input],
+      outputs: [user_output_0, user_output_1, script_output],
+      mint: nft_burning,
+      validity_range: entirely_before(start_change_time),
+    }
+
+  // The transaction invokes both the `mint()` and `spend()` subvalidators.
+  empowa_swap.empowa_swap.spend(
+    //datum
+    None,
+    payout_asset_pid: payout_asset_pid,
+    payout_asset_name: payout_asset_name,
+    burn_nft_pid: burn_nft_pid,
+    burn_nft_name: burn_nft_name,
+    n2a_change_rate: n2a_change_rate,
+    start_change_time: start_change_time,
+    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
+    owner_address: owner_address,
+    redeemer: Exchange,
+    contract_utxo: utxo_contract_ref,
+    tx: tx,
+  )
 }
 
 test failed_exchange_treasury_full_consume_marker_not_burned() fail {
@@ -658,6 +810,7 @@ test failed_exchange_treasury_full_consume_marker_not_burned() fail {
       inputs: [user_input_0, user_input_1, script_input],
       outputs: [user_output_0, user_output_1, user_output_2, owner_output],
       mint: nft_and_marker_burning,
+      validity_range: entirely_after(start_change_time),
     }
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
@@ -867,6 +1020,7 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
       ],
       outputs: [user_output_0, user_output_1, owner_output, contract_output],
       mint: nft_and_marker_burning,
+      validity_range: entirely_after(start_change_time),
     }
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
@@ -1031,6 +1185,7 @@ test failed_exchange_with_wrong_nft() fail {
       inputs: [user_input_0, user_input_1, script_input],
       outputs: [user_output_0, user_output_1, script_output],
       mint: nft_burning,
+      validity_range: entirely_after(start_change_time),
     }
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
@@ -1196,6 +1351,7 @@ test failed_exchange_illegal_minting_attempt() fail {
       inputs: [user_input_0, user_input_1, script_input],
       outputs: [user_output_0, user_output_1, script_output],
       mint: nft_burning,
+      validity_range: entirely_after(start_change_time),
     }
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
@@ -1349,6 +1505,7 @@ test failed_exchange_treasury_full_consume_ada_stealing() fail {
       inputs: [user_input_0, user_input_1, script_input],
       outputs: [user_output_0, user_output_1, user_output_2, owner_output],
       mint: nft_and_marker_burning,
+      validity_range: entirely_after(start_change_time),
     }
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
@@ -1514,6 +1671,7 @@ test failed_exchange_fake_payout() fail {
       inputs: [user_input_0, user_input_1, script_input],
       outputs: [user_output_0, user_output_1, script_output],
       mint: nft_burning,
+      validity_range: entirely_after(start_change_time),
     }
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.

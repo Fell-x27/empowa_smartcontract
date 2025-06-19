@@ -3,6 +3,7 @@ use aiken/collection/list.{
   all, any, difference, filter as l_filter, foldl as l_foldl, has, length,
   map as l_map, reduce as l_reduce, sort,
 }
+use aiken/interval.{is_entirely_after, is_entirely_before}
 use aiken/primitive/bytearray.{starts_with}
 use aiken/primitive/int
 use cardano/address.{Address, PaymentCredential, Script, VerificationKey}
@@ -12,7 +13,10 @@ use cardano/assets.{
 use cardano/transaction.{
   Input, Output, OutputReference, Transaction, find_input, find_script_outputs,
 }
-use config.{contract_treasury_lovelace, contract_treasury_marker_name}
+use config.{
+  contract_exchange_start_after, contract_treasury_lovelace,
+  contract_treasury_marker_name,
+}
 
 pub type Action {
   Bootstrap
@@ -113,8 +117,12 @@ validator empowa_swap(
       inputs: tx_inputs,
       outputs: tx_outputs,
       mint: tx_mint,
+      validity_range: tx_validity_range,
       ..
     } = tx
+
+    let is_exchange_already_allowed =
+      is_entirely_after(tx_validity_range, start_change_time)
 
     expect Some(Input { output: Output { address: contract_address, .. }, .. }) =
       find_input(tx_inputs, contract_utxo)
@@ -311,6 +319,7 @@ validator empowa_swap(
           }
 
         and {
+          is_exchange_already_allowed?,
           are_contract_inputs_optimal?,
           contract_payout_is_fine?,
           mint_is_valid?,
