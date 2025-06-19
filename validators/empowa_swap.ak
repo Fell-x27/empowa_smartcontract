@@ -348,8 +348,14 @@ validator empowa_swap(
       inputs: tx_inputs,
       outputs: tx_outputs,
       mint: tx_mint,
+      validity_range: tx_validity_range,
       ..
     } = tx
+
+    let is_exchange_already_allowed =
+      is_entirely_after(tx_validity_range, start_change_time)
+
+    let contract_address = Address(Script(contract_policy_id), None)
 
     when redeemer is {
       Bootstrap -> {
@@ -413,6 +419,18 @@ validator empowa_swap(
           minted_markers_match_script_outputs?,
         }
       }
+
+      Exchange ->
+        // Exchange (sending EMP): 
+        // - Ensure that the burned `contract_policy_id.contract_treasury_marker_name` comes from the single UTXO sent to the contract address.        
+        //
+        // Find all markers to be burned
+        // Calculate the expected payout
+        // Calculate the expected number of burned markers
+        // Compare it with the actual number of burned markers
+        // TODO: extract this logic from the spend validator to avoid duplication.
+
+        todo @"Exchange mint not implemented"
       Recall ->
         // Treasury destruction (recalling EMP, unlocking base ADA, trashing empty treasury):
         // - Redeemer: Recall.
@@ -423,12 +441,6 @@ validator empowa_swap(
         //   - ensure that the only output goes to the address associated with `assets_owner_pcred`;
         //   - ensure that there are no tx_outputs containing `contract_policy_id.contract_treasury_marker_name`.
         todo @"Recall mint not implemented"
-
-      Exchange ->
-        // Exchange (sending EMP): 
-        // - Ensure that the burned `contract_policy_id.contract_treasury_marker_name` comes from the single UTXO sent to the contract address.        
-
-        todo @"Exchange mint not implemented"
     }
   }
 

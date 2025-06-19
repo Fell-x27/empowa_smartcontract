@@ -9,6 +9,7 @@ use env.{
 }
 
 // This section contains a set of tests covering all edge cases related to treasury UTXO creation.
+// TODO: what if something other than marker is minted, or marker is burned?
 
 test succeed_bootstrap() {
   // Treasury formation (sending assets, minting the marker token):
