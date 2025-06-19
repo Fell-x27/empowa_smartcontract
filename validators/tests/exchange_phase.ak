@@ -15,6 +15,8 @@ use env.{
   utxo_def_ref,
 }
 
+//TODO check if trs wasn't burned
+
 fn get_user_addr(pfx) {
   Address(VerificationKey(concat(pfx, "Some user")), None)
 }

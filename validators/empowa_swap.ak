@@ -4,6 +4,7 @@ use aiken/collection/list.{
   map as l_map, reduce as l_reduce, sort,
 }
 use aiken/primitive/bytearray.{starts_with}
+use aiken/primitive/int
 use cardano/address.{Address, PaymentCredential, Script, VerificationKey}
 use cardano/assets.{
   AssetName, PolicyId, flatten, lovelace_of, policies, quantity_of, tokens,
@@ -63,9 +64,7 @@ fn find_outputs_by_address(
 }
 
 fn validate_optimality(
-  outputs_list: List<Output>,
-  policy_id: PolicyId,
-  asset_name: AssetName,
+  assets_quantity_list: List<Int>,
   optimal_amount: Int,
   start_sum: Int,
 ) -> Bool {
@@ -74,27 +73,20 @@ fn validate_optimality(
   // At each iteration, check whether the accumulated sum satisfies the condition and whether there are remaining elements:
   // - either the sum is satisfied and no elements are left,
   // - or elements remain and the sum is not yet satisfied.
-  when outputs_list is {
-    [Output { value, .. }, ..xs] -> {
+  when assets_quantity_list is {
+    [] -> fail
+    [_] -> True
+    [x, ..xs] -> {
       let length_xs = length(xs)
-      let start_sum = start_sum + quantity_of(value, policy_id, asset_name)
-      if start_sum >= optimal_amount && (
-        length_xs == 0 || length(outputs_list) == 1
-      ) {
+      let start_sum = start_sum + x
+      if start_sum >= optimal_amount && length_xs == 0 {
         True
       } else if start_sum < optimal_amount && length_xs != 0 {
-        validate_optimality(
-          xs,
-          policy_id,
-          asset_name,
-          optimal_amount,
-          start_sum,
-        )
+        validate_optimality(xs, optimal_amount, start_sum)
       } else {
         False
       }
     }
-    [] -> fail
   }
 }
 
@@ -267,12 +259,13 @@ validator empowa_swap(
 
         let are_contract_inputs_optimal =
           contract_inputs_outs
-            |> validate_optimality(
-                payout_asset_pid,
-                payout_asset_name,
-                real_payouts_sum,
-                0,
+            |> l_map(
+                fn(Output { value, .. }) {
+                  quantity_of(value, payout_asset_pid, payout_asset_name)
+                },
               )
+            |> sort(int.compare)
+            |> validate_optimality(real_payouts_sum, 0)
 
         let contract_input_payout_assets_amount =
           contract_inputs_outs
