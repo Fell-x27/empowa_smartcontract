@@ -10,8 +10,9 @@ use config.{contract_treasury_lovelace}
 use empowa_swap.{Bootstrap, Exchange}
 use env.{
   burn_nft_name, burn_nft_pid, contract_address, contract_pcred,
-  contract_policy_id, contract_treasury_marker_name, n2a_change_rate,
-  owner_address, payout_asset_name, payout_asset_pid, start_change_time,
+  contract_policy_id, contract_treasury_base_quantity,
+  contract_treasury_marker_name, n2a_change_rate, owner_address,
+  payout_asset_name, payout_asset_pid, start_change_time,
   unlock_unclaimed_assets_time, user_address, user_pcred, utxo_contract_ref,
   utxo_def_ref,
 }
@@ -76,7 +77,10 @@ test succeed_exchange_treasury_part_consume() {
         address: contract_address,
         value: from_asset_list(
           [
-            Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
         ),
@@ -131,7 +135,12 @@ test succeed_exchange_treasury_part_consume() {
         [
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, 10_000 - n2a_change_rate * 3)],
+            [
+              Pair(
+                payout_asset_name,
+                contract_treasury_base_quantity - n2a_change_rate * 3,
+              ),
+            ],
           ),
           // ^ 3 NFTs were burned; the treasury balance was reduced accordingly.
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
@@ -587,7 +596,10 @@ test failed_exchange_before_start_time() fail {
         address: contract_address,
         value: from_asset_list(
           [
-            Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
         ),
@@ -642,7 +654,12 @@ test failed_exchange_before_start_time() fail {
         [
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, 10_000 - n2a_change_rate * 3)],
+            [
+              Pair(
+                payout_asset_name,
+                contract_treasury_base_quantity - n2a_change_rate * 3,
+              ),
+            ],
           ),
           // ^ 3 NFTs were burned; the treasury balance was reduced accordingly.
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
@@ -814,21 +831,36 @@ test failed_exchange_treasury_full_consume_marker_not_burned() fail {
     }
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
-  empowa_swap.empowa_swap.spend(
-    //datum
-    None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
-    redeemer: Exchange,
-    contract_utxo: utxo_contract_ref,
-    tx: tx,
-  )
+  and {
+    empowa_swap.empowa_swap.spend(
+      //datum
+      None,
+      payout_asset_pid: payout_asset_pid,
+      payout_asset_name: payout_asset_name,
+      burn_nft_pid: burn_nft_pid,
+      burn_nft_name: burn_nft_name,
+      n2a_change_rate: n2a_change_rate,
+      start_change_time: start_change_time,
+      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
+      owner_address: owner_address,
+      redeemer: Exchange,
+      contract_utxo: utxo_contract_ref,
+      tx: tx,
+    ),
+    empowa_swap.empowa_swap.mint(
+      payout_asset_pid: payout_asset_pid,
+      payout_asset_name: payout_asset_name,
+      burn_nft_pid: burn_nft_pid,
+      burn_nft_name: burn_nft_name,
+      n2a_change_rate: n2a_change_rate,
+      start_change_time: start_change_time,
+      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
+      owner_address: owner_address,
+      redeemer: Exchange,
+      contract_policy_id: contract_policy_id,
+      tx: tx,
+    ),
+  }
 }
 
 test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
@@ -1114,7 +1146,10 @@ test failed_exchange_with_wrong_nft() fail {
         address: contract_address,
         value: from_asset_list(
           [
-            Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
         ),
@@ -1169,7 +1204,12 @@ test failed_exchange_with_wrong_nft() fail {
         [
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, 10_000 - n2a_change_rate * 3)],
+            [
+              Pair(
+                payout_asset_name,
+                contract_treasury_base_quantity - n2a_change_rate * 3,
+              ),
+            ],
           ),
           // ^ 3 NFTs were burned; the treasury balance was reduced accordingly.
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
@@ -1264,7 +1304,10 @@ test failed_exchange_illegal_minting_attempt() fail {
         address: contract_address,
         value: from_asset_list(
           [
-            Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
         ),
@@ -1335,7 +1378,12 @@ test failed_exchange_illegal_minting_attempt() fail {
         [
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, 10_000 - n2a_change_rate * 3)],
+            [
+              Pair(
+                payout_asset_name,
+                contract_treasury_base_quantity - n2a_change_rate * 3,
+              ),
+            ],
           ),
           // ^ 3 NFTs were burned; the treasury balance was reduced accordingly.
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
@@ -1603,7 +1651,10 @@ test failed_exchange_fake_payout() fail {
         address: contract_address,
         value: from_asset_list(
           [
-            Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
         ),
@@ -1656,7 +1707,10 @@ test failed_exchange_fake_payout() fail {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
+          Pair(
+            payout_asset_pid,
+            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+          ),
           // ^ 3 NFTs were burned; But the treasury balance was not reduced accordingly. User got their own asset back.
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],

@@ -19,3 +19,4 @@ source = "github"
 contract_treasury_marker_name = "TRS"
 contract_treasury_lovelace = 5_000_000
 contract_exchange_start_after = 1_234_567
+contract_treasury_base_quantity = 11_000

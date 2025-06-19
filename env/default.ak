@@ -14,6 +14,9 @@ pub const burn_nft_name = "NFT name pattern"
 
 pub const n2a_change_rate = 1100
 
+pub const contract_treasury_base_quantity =
+  config.contract_treasury_base_quantity
+
 pub const start_change_time = config.contract_exchange_start_after
 
 pub const unlock_unclaimed_assets_time = 10

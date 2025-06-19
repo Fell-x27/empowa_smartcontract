@@ -3,9 +3,9 @@ use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
 use empowa_swap.{Bootstrap}
 use env.{
   burn_nft_name, burn_nft_pid, contract_address, contract_policy_id,
-  contract_treasury_marker_name, n2a_change_rate, owner_address,
-  payout_asset_name, payout_asset_pid, start_change_time,
-  unlock_unclaimed_assets_time, user_address, utxo_def_ref,
+  contract_treasury_base_quantity, contract_treasury_marker_name,
+  n2a_change_rate, owner_address, payout_asset_name, payout_asset_pid,
+  start_change_time, unlock_unclaimed_assets_time, user_address, utxo_def_ref,
 }
 
 // This section contains a set of tests covering all edge cases related to treasury UTXO creation.
@@ -26,7 +26,11 @@ test succeed_bootstrap() {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_asset(payout_asset_pid, payout_asset_name, 10_000),
+        value: from_asset(
+          payout_asset_pid,
+          payout_asset_name,
+          contract_treasury_base_quantity,
+        ),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
         reference_script: None,
@@ -58,8 +62,10 @@ test succeed_bootstrap() {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
-          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+          Pair(
+            payout_asset_pid,
+            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+          ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
       datum: NoDatum,
@@ -105,7 +111,10 @@ test failed_bootstrap_wrong_inputs() fail {
         address: contract_address,
         value: from_asset_list(
           [
-            Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
         ),
@@ -138,8 +147,10 @@ test failed_bootstrap_wrong_inputs() fail {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
-          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+          Pair(
+            payout_asset_pid,
+            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+          ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
       datum: NoDatum,
@@ -151,8 +162,10 @@ test failed_bootstrap_wrong_inputs() fail {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
-          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+          Pair(
+            payout_asset_pid,
+            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+          ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
       datum: NoDatum,
@@ -197,7 +210,11 @@ test failed_bootstrap_treasury_marker_stealing() fail {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_asset(payout_asset_pid, payout_asset_name, 10_000),
+        value: from_asset(
+          payout_asset_pid,
+          payout_asset_name,
+          contract_treasury_base_quantity,
+        ),
         datum: NoDatum,
         reference_script: None,
       },
@@ -227,7 +244,12 @@ test failed_bootstrap_treasury_marker_stealing() fail {
     Output {
       address: contract_address,
       value: from_asset_list(
-        [Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)])],
+        [
+          Pair(
+            payout_asset_pid,
+            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+          ),
+        ],
       ),
       datum: NoDatum,
       reference_script: None,
@@ -346,7 +368,11 @@ test failed_bootstrap_treasury_marker_overmint() fail {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_asset(payout_asset_pid, payout_asset_name, 10_000),
+        value: from_asset(
+          payout_asset_pid,
+          payout_asset_name,
+          contract_treasury_base_quantity,
+        ),
         datum: NoDatum,
         reference_script: None,
       },
@@ -377,8 +403,10 @@ test failed_bootstrap_treasury_marker_overmint() fail {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(payout_asset_pid, [Pair(payout_asset_name, 10_000)]),
-          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+          Pair(
+            payout_asset_pid,
+            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+          ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
       datum: NoDatum,
@@ -419,7 +447,11 @@ test failed_bootstrap_wrong_script_outputs() fail {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_asset(payout_asset_pid, payout_asset_name, 10_000),
+        value: from_asset(
+          payout_asset_pid,
+          payout_asset_name,
+          contract_treasury_base_quantity,
+        ),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
         reference_script: None,

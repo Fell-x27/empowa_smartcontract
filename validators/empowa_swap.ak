@@ -14,8 +14,8 @@ use cardano/transaction.{
   Input, Output, OutputReference, Transaction, find_input, find_script_outputs,
 }
 use config.{
-  contract_exchange_start_after, contract_treasury_lovelace,
-  contract_treasury_marker_name,
+  contract_exchange_start_after, contract_treasury_base_quantity,
+  contract_treasury_lovelace, contract_treasury_marker_name,
 }
 
 pub type Action {
@@ -303,7 +303,7 @@ validator empowa_swap(
             |> difference(burned_nfts)
             |> length()
 
-        let are_treasury_removed_properly =
+        let are_treasuries_removed_properly =
           consumed_treasury_count == burned_markers_count
 
         let treasury_ada_sent_back_properly =
@@ -324,7 +324,7 @@ validator empowa_swap(
           contract_payout_is_fine?,
           mint_is_valid?,
           payouts_are_valid?,
-          are_treasury_removed_properly?,
+          are_treasuries_removed_properly?,
           treasury_ada_sent_back_properly?,
         }
       }
@@ -390,7 +390,7 @@ validator empowa_swap(
                       script_output_value,
                       payout_asset_pid,
                       payout_asset_name,
-                    ) >= 10_000)?,
+                    ) >= contract_treasury_base_quantity)?,
                   }
                 },
               )
@@ -428,9 +428,7 @@ validator empowa_swap(
         // Exchange (sending EMP): 
         // - Ensure that the burned `contract_policy_id.contract_treasury_marker_name` comes from the single UTXO sent to the contract address.        
 
-        // todo @"Exchange mint not implemented"
-        //temporary true
-        True
+        todo @"Exchange mint not implemented"
     }
   }
 
