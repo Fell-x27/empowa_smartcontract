@@ -420,17 +420,23 @@ validator empowa_swap(
         }
       }
 
-      Exchange ->
+      Exchange -> {
         // Exchange (sending EMP): 
         // - Ensure that the burned `contract_policy_id.contract_treasury_marker_name` comes from the single UTXO sent to the contract address.        
         //
-        // Find all markers to be burned
-        // Calculate the expected payout
-        // Calculate the expected number of burned markers
-        // Compare it with the actual number of burned markers
-        // TODO: extract this logic from the spend validator to avoid duplication.
+        // Actually, there is no way to burn any marker without spending the contract's UTxO, 
+        // so the entire validation logic resides in the spending validator.
+        // Here, we only need to ensure that this is a burning transaction, not minting.
+        expect [Pair(asset_name, asset_quantity)] =
+          tx_mint
+            |> tokens(contract_policy_id)
+            |> to_pairs()
 
-        todo @"Exchange mint not implemented"
+        and {
+          asset_name == contract_treasury_marker_name,
+          asset_quantity < 0,
+        }
+      }
       Recall ->
         // Treasury destruction (recalling EMP, unlocking base ADA, trashing empty treasury):
         // - Redeemer: Recall.
