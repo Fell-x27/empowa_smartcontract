@@ -17,7 +17,7 @@ test succeed_bootstrap() {
   // - Inputs:
   //   - ensure that `contract_policy_id.contract_treasury_marker_name` is not present in any input (it may only be minted);
   // - Outputs:
-  //   - verify that N EMP are sent to the contract address along with the `contract_policy_id.contract_treasury_marker_name` asset;
+  //   - verify that N EMP are sent to the contract_ address along with the `contract_policy_id.contract_treasury_marker_name` asset;
   // - Minting:
   //   - ensure that exactly 1 `contract_treasury_marker_name` was minted;
   // - AmountLock:
@@ -58,7 +58,7 @@ test succeed_bootstrap() {
       reference_script: None,
     }
 
-  let script_output =
+  let contract_output =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -80,7 +80,7 @@ test succeed_bootstrap() {
     Transaction {
       ..placeholder,
       inputs: [user_input_0, user_input_1],
-      outputs: [user_output, script_output],
+      outputs: [user_output, contract_output],
       mint: mint_treasury_marker,
     }
 
@@ -105,7 +105,7 @@ test failed_bootstrap_wrong_inputs() fail {
 
   // Can only be violated by splitting a treasury UTXO via input.
 
-  let script_input =
+  let contract_input =
     Input(
       utxo_def_ref,
       Output {
@@ -143,7 +143,7 @@ test failed_bootstrap_wrong_inputs() fail {
       reference_script: None,
     }
 
-  let script_output_0 =
+  let contract_output_0 =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -158,7 +158,7 @@ test failed_bootstrap_wrong_inputs() fail {
       reference_script: None,
     }
 
-  let script_output_1 =
+  let contract_output_1 =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -179,8 +179,8 @@ test failed_bootstrap_wrong_inputs() fail {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [script_input, user_input],
-      outputs: [user_output, script_output_0, script_output_1],
+      inputs: [contract_input, user_input],
+      outputs: [user_output, contract_output_0, contract_output_1],
       mint: mint_treasury_marker,
     }
 
@@ -241,7 +241,7 @@ test failed_bootstrap_treasury_marker_stealing() fail {
       reference_script: None,
     }
 
-  let script_output =
+  let contract_output =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -263,7 +263,7 @@ test failed_bootstrap_treasury_marker_stealing() fail {
     Transaction {
       ..placeholder,
       inputs: [user_input_0, user_input_1],
-      outputs: [user_output, script_output],
+      outputs: [user_output, contract_output],
       mint: mint_treasury_marker,
     }
 
@@ -318,7 +318,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
       reference_script: None,
     }
 
-  let script_output =
+  let contract_output =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -338,7 +338,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
     Transaction {
       ..placeholder,
       inputs: [user_input_0, user_input_1],
-      outputs: [user_output, script_output],
+      outputs: [user_output, contract_output],
       mint: mint_treasury_marker,
     }
 
@@ -359,7 +359,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
 
 test failed_bootstrap_treasury_marker_overmint() fail {
   // - Minting:
-  //   - ensure that exactly 1 `contract_policy_id.contract_treasury_marker_name` per script_output was minted;
+  //   - ensure that exactly 1 `contract_policy_id.contract_treasury_marker_name` per contract_output was minted;
 
   // If violated, a user could steal the treasury marker and misuse it.
   // Also prevents accidental overminting of markers.
@@ -399,7 +399,7 @@ test failed_bootstrap_treasury_marker_overmint() fail {
       reference_script: None,
     }
 
-  let script_output =
+  let contract_output =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -421,7 +421,7 @@ test failed_bootstrap_treasury_marker_overmint() fail {
     Transaction {
       ..placeholder,
       inputs: [user_input_0, user_input_1],
-      outputs: [user_output, script_output],
+      outputs: [user_output, contract_output],
       mint: mint_treasury_marker,
     }
 
@@ -440,9 +440,9 @@ test failed_bootstrap_treasury_marker_overmint() fail {
   )
 }
 
-test failed_bootstrap_wrong_script_outputs() fail {
+test failed_bootstrap_wrong_contract_outputs() fail {
   // - Outputs:
-  //   - verify that N EMP are sent to the contract address along with the `contract_policy_id.contract_treasury_marker_name` asset;
+  //   - verify that N EMP are sent to the contract_ address along with the `contract_policy_id.contract_treasury_marker_name` asset;
   let user_input_0 =
     Input(
       utxo_def_ref,

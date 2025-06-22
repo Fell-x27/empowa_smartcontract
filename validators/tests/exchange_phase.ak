@@ -70,7 +70,7 @@ test succeed_exchange_treasury_part_consume() {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input =
+  let contract_input =
     Input(
       utxo_contract_ref,
       Output {
@@ -128,7 +128,7 @@ test succeed_exchange_treasury_part_consume() {
     }
 
   // The contract expects the change (leftover EMP) to be returned to a treasury UTXO, marked with a treasury marker.
-  let script_output =
+  let contract_output =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -153,8 +153,8 @@ test succeed_exchange_treasury_part_consume() {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [user_input_0, user_input_1, script_input],
-      outputs: [user_output_0, user_output_1, script_output],
+      inputs: [user_input_0, user_input_1, contract_input],
+      outputs: [user_output_0, user_output_1, contract_output],
       mint: nft_burning,
       validity_range: entirely_after(start_change_time),
     }
@@ -228,7 +228,7 @@ test succeed_exchange_treasury_full_consume() {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input =
+  let contract_input =
     Input(
       utxo_contract_ref,
       Output {
@@ -298,7 +298,7 @@ test succeed_exchange_treasury_full_consume() {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [user_input_0, user_input_1, script_input],
+      inputs: [user_input_0, user_input_1, contract_input],
       outputs: [user_output_0, user_output_1, owner_output],
       mint: nft_and_marker_burning,
       validity_range: entirely_after(start_change_time),
@@ -396,7 +396,7 @@ test succeed_exchange_treasury_hybrid_consume() {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input_0 =
+  let contract_input_0 =
     Input(
       utxo_contract_ref,
       Output {
@@ -415,7 +415,7 @@ test succeed_exchange_treasury_hybrid_consume() {
       },
     )
 
-  let script_input_1 =
+  let contract_input_1 =
     Input(
       utxo_contract_ref,
       Output {
@@ -501,7 +501,7 @@ test succeed_exchange_treasury_hybrid_consume() {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [user_input_0, user_input_1, script_input_0, script_input_1],
+      inputs: [user_input_0, user_input_1, contract_input_0, contract_input_1],
       outputs: [user_output_0, user_output_1, owner_output, contract_output],
       mint: nft_and_marker_burning,
       validity_range: entirely_after(start_change_time),
@@ -589,7 +589,7 @@ test failed_exchange_before_start_time() fail {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input =
+  let contract_input =
     Input(
       utxo_contract_ref,
       Output {
@@ -647,7 +647,7 @@ test failed_exchange_before_start_time() fail {
     }
 
   // The contract expects the change (leftover EMP) to be returned to a treasury UTXO, marked with a treasury marker.
-  let script_output =
+  let contract_output =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -672,8 +672,8 @@ test failed_exchange_before_start_time() fail {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [user_input_0, user_input_1, script_input],
-      outputs: [user_output_0, user_output_1, script_output],
+      inputs: [user_input_0, user_input_1, contract_input],
+      outputs: [user_output_0, user_output_1, contract_output],
       mint: nft_burning,
       validity_range: entirely_before(start_change_time),
     }
@@ -746,7 +746,7 @@ test failed_exchange_treasury_full_consume_marker_not_burned() fail {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input =
+  let contract_input =
     Input(
       utxo_contract_ref,
       Output {
@@ -824,7 +824,7 @@ test failed_exchange_treasury_full_consume_marker_not_burned() fail {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [user_input_0, user_input_1, script_input],
+      inputs: [user_input_0, user_input_1, contract_input],
       outputs: [user_output_0, user_output_1, user_output_2, owner_output],
       mint: nft_and_marker_burning,
       validity_range: entirely_after(start_change_time),
@@ -863,7 +863,7 @@ test failed_exchange_treasury_full_consume_marker_not_burned() fail {
   }
 }
 
-test failed_exchange_treasury_hybrid_consume_split_script_out() fail {
+test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
   // What if the user splits Contract's treasury rather than burn a consumed one?
   // The user provides their own UTXOs as inputs, some of which contain assets with names starting with `burn_nft_pid.burn_nft_name*`.
   //
@@ -925,7 +925,7 @@ test failed_exchange_treasury_hybrid_consume_split_script_out() fail {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input_0 =
+  let contract_input_0 =
     Input(
       utxo_contract_ref,
       Output {
@@ -944,7 +944,7 @@ test failed_exchange_treasury_hybrid_consume_split_script_out() fail {
       },
     )
 
-  let script_input_1 =
+  let contract_input_1 =
     Input(
       utxo_contract_ref,
       Output {
@@ -1045,7 +1045,7 @@ test failed_exchange_treasury_hybrid_consume_split_script_out() fail {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [user_input_0, user_input_1, script_input_0, script_input_1],
+      inputs: [user_input_0, user_input_1, contract_input_0, contract_input_1],
       outputs: [
         user_output_0, user_output_1, owner_output, contract_output_0,
         contract_output_1,
@@ -1146,7 +1146,7 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input_0 =
+  let contract_input_0 =
     Input(
       utxo_contract_ref,
       Output {
@@ -1165,7 +1165,7 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
       },
     )
 
-  let script_input_1 =
+  let contract_input_1 =
     Input(
       utxo_contract_ref,
       Output {
@@ -1184,7 +1184,7 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
       },
     )
 
-  let script_input_2 =
+  let contract_input_2 =
     Input(
       utxo_contract_ref,
       Output {
@@ -1271,8 +1271,8 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
     Transaction {
       ..placeholder,
       inputs: [
-        user_input_0, user_input_1, script_input_0, script_input_1,
-        script_input_2,
+        user_input_0, user_input_1, contract_input_0, contract_input_1,
+        contract_input_2,
       ],
       outputs: [user_output_0, user_output_1, owner_output, contract_output],
       mint: nft_and_marker_burning,
@@ -1363,7 +1363,7 @@ test failed_exchange_with_wrong_nft() fail {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input =
+  let contract_input =
     Input(
       utxo_contract_ref,
       Output {
@@ -1421,7 +1421,7 @@ test failed_exchange_with_wrong_nft() fail {
     }
 
   // The contract expects the change (leftover EMP) to be returned to a treasury UTXO, marked with a treasury marker.
-  let script_output =
+  let contract_output =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -1446,8 +1446,8 @@ test failed_exchange_with_wrong_nft() fail {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [user_input_0, user_input_1, script_input],
-      outputs: [user_output_0, user_output_1, script_output],
+      inputs: [user_input_0, user_input_1, contract_input],
+      outputs: [user_output_0, user_output_1, contract_output],
       mint: nft_burning,
       validity_range: entirely_after(start_change_time),
     }
@@ -1521,7 +1521,7 @@ test failed_exchange_illegal_minting_attempt() fail {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input =
+  let contract_input =
     Input(
       utxo_contract_ref,
       Output {
@@ -1595,7 +1595,7 @@ test failed_exchange_illegal_minting_attempt() fail {
     }
 
   // The contract expects the change (leftover EMP) to be returned to a treasury UTXO, marked with a treasury marker.
-  let script_output =
+  let contract_output =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -1620,8 +1620,8 @@ test failed_exchange_illegal_minting_attempt() fail {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [user_input_0, user_input_1, script_input],
-      outputs: [user_output_0, user_output_1, script_output],
+      inputs: [user_input_0, user_input_1, contract_input],
+      outputs: [user_output_0, user_output_1, contract_output],
       mint: nft_burning,
       validity_range: entirely_after(start_change_time),
     }
@@ -1697,7 +1697,7 @@ test failed_exchange_treasury_full_consume_ada_stealing() fail {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input =
+  let contract_input =
     Input(
       utxo_contract_ref,
       Output {
@@ -1774,7 +1774,7 @@ test failed_exchange_treasury_full_consume_ada_stealing() fail {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [user_input_0, user_input_1, script_input],
+      inputs: [user_input_0, user_input_1, contract_input],
       outputs: [user_output_0, user_output_1, user_output_2, owner_output],
       mint: nft_and_marker_burning,
       validity_range: entirely_after(start_change_time),
@@ -1868,7 +1868,7 @@ test failed_exchange_fake_payout() fail {
     )
 
   // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
-  let script_input =
+  let contract_input =
     Input(
       utxo_contract_ref,
       Output {
@@ -1926,7 +1926,7 @@ test failed_exchange_fake_payout() fail {
     }
 
   // The contract expects the change (leftover EMP) to be returned to a treasury UTXO, marked with a treasury marker.
-  let script_output =
+  let contract_output =
     Output {
       address: contract_address,
       value: from_asset_list(
@@ -1946,8 +1946,8 @@ test failed_exchange_fake_payout() fail {
   let tx =
     Transaction {
       ..placeholder,
-      inputs: [user_input_0, user_input_1, script_input],
-      outputs: [user_output_0, user_output_1, script_output],
+      inputs: [user_input_0, user_input_1, contract_input],
+      outputs: [user_output_0, user_output_1, contract_output],
       mint: nft_burning,
       validity_range: entirely_after(start_change_time),
     }

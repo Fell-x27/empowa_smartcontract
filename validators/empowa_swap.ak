@@ -124,6 +124,9 @@ validator empowa_swap(
     let is_exchange_already_allowed =
       is_entirely_after(tx_validity_range, start_change_time)
 
+    let is_recall_already_allowed =
+      is_entirely_after(tx_validity_range, unlock_unclaimed_assets_time)
+
     expect Some(Input { output: Output { address: contract_address, .. }, .. }) =
       find_input(tx_inputs, contract_utxo)
 
@@ -388,19 +391,20 @@ validator empowa_swap(
         // - AmountLock:
         //   - it's not allowed to create a treasury with less than 10,000 EMP;
         //   - it's not allowed to create a treasury with `contract_policy_id.contract_treasury_marker_name` != 1 .
-        let script_outputs = find_script_outputs(tx_outputs, contract_policy_id)
-        let script_outputs_are_fine =
-          script_outputs
+        let contract_outputs =
+          find_script_outputs(tx_outputs, contract_policy_id)
+        let contract_outputs_are_fine =
+          contract_outputs
             |> all(
-                fn(Output { value: script_output_value, .. }) {
+                fn(Output { value: contract_output_value, .. }) {
                   and {
                     (quantity_of(
-                      script_output_value,
+                      contract_output_value,
                       contract_policy_id,
                       contract_treasury_marker_name,
                     ) == 1)?,
                     (quantity_of(
-                      script_output_value,
+                      contract_output_value,
                       payout_asset_pid,
                       payout_asset_name,
                     ) >= contract_treasury_base_quantity)?,
@@ -409,21 +413,21 @@ validator empowa_swap(
               )
 
         // - Minting:
-        //   - ensure that exactly 1 `contract_policy_id.contract_treasury_marker_name` per script_output was minted;
-        let script_outputs_quantity = length(script_outputs)
+        //   - ensure that exactly 1 `contract_policy_id.contract_treasury_marker_name` per contract_output was minted;
+        let contract_outputs_quantity = length(contract_outputs)
         let minted_markers_quantity =
           quantity_of(
             tx_mint,
             contract_policy_id,
             contract_treasury_marker_name,
           )
-        let minted_markers_match_script_outputs =
-          script_outputs_quantity == minted_markers_quantity
+        let minted_markers_match_contract_outputs =
+          contract_outputs_quantity == minted_markers_quantity
 
         and {
           no_markers_in_inputs?,
-          script_outputs_are_fine?,
-          minted_markers_match_script_outputs?,
+          contract_outputs_are_fine?,
+          minted_markers_match_contract_outputs?,
         }
       }
 
