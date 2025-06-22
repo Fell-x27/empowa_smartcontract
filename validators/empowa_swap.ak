@@ -8,7 +8,8 @@ use aiken/primitive/bytearray.{starts_with}
 use aiken/primitive/int
 use cardano/address.{Address, PaymentCredential, Script, VerificationKey}
 use cardano/assets.{
-  AssetName, PolicyId, flatten, lovelace_of, policies, quantity_of, tokens,
+  AssetName, PolicyId, Value, flatten, lovelace_of, policies, quantity_of,
+  tokens,
 }
 use cardano/transaction.{
   Input, Output, OutputReference, Transaction, find_input, find_script_outputs,
@@ -22,6 +23,22 @@ pub type Action {
   Bootstrap
   Exchange
   Recall
+}
+
+fn check_if_single_asset_burned(
+  tx_mint: Value,
+  policy_id: PolicyId,
+  asset_name: AssetName,
+) -> Bool {
+  expect [Pair(burned_asset_name, asset_quantity)] =
+    tx_mint
+      |> tokens(policy_id)
+      |> to_pairs()
+
+  and {
+    (asset_name == burned_asset_name)?,
+    (asset_quantity < 0)?,
+  }
 }
 
 fn address2pcred_as_bytes(Address { payment_credential, .. }) -> ByteArray {
@@ -343,12 +360,35 @@ validator empowa_swap(
           is_there_no_more_than_one_contract_out?,
         }
       }
-      Recall ->
-        // Treasury destruction (recalling EMP and unlocking base ADA):
-        //  Minting:
-        //   - `contract_policy_id.contract_treasury_marker_name` < 0;
-        // - Delegated to the mint() subvalidator.
-        todo @"Recall spend not implemented"
+      Recall -> {
+        // Treasury destruction (recalling EMP, unlocking base ADA, trashing empty treasury):
+        // - Redeemer: Recall.
+        // - Minting:
+        //   - burning is allowed only after `unlock_unclaimed_assets_time`;
+        // - Outputs:
+        //   - ensure that the only output goes to the address associated with `assets_owner_pcred`;
+        //   - ensure that there are no tx_outputs containing `contract_policy_id.contract_treasury_marker_name`.
+
+        expect [Output { address: output_address, value: output_value, .. }] =
+          tx_outputs
+
+        let is_output_fine = and {
+            (output_address == owner_address)?,
+            (quantity_of(
+              output_value,
+              contract_policy_id,
+              contract_treasury_marker_name,
+            ) == 0)?,
+          }
+
+        // If there are no markers in a particular output, we don't need to check if they were burned.
+        // This is implicitly guaranteed, otherwise the transaction would be unbalanced.
+        // It also allows us to recall any unclaimed UTxOs without requiring a marker at all.
+        and {
+          is_recall_already_allowed?,
+          is_output_fine?,
+        }
+      }
       Bootstrap -> fail
     }
   }
@@ -365,7 +405,8 @@ validator empowa_swap(
     let is_exchange_already_allowed =
       is_entirely_after(tx_validity_range, start_change_time)
 
-    let contract_address = Address(Script(contract_policy_id), None)
+    let is_recall_already_allowed =
+      is_entirely_after(tx_validity_range, unlock_unclaimed_assets_time)
 
     when redeemer is {
       Bootstrap -> {
@@ -431,33 +472,37 @@ validator empowa_swap(
         }
       }
 
-      Exchange -> {
+      Exchange ->
         // Exchange (sending EMP): 
         // - Ensure that the burned `contract_policy_id.contract_treasury_marker_name` comes from the single UTXO sent to the contract address.        
         //
         // Actually, there is no way to burn any marker without spending the contract's UTxO, 
         // so the entire validation logic resides in the spending validator.
         // Here, we only need to ensure that this is a burning transaction, not minting.
-        expect [Pair(asset_name, asset_quantity)] =
-          tx_mint
-            |> tokens(contract_policy_id)
-            |> to_pairs()
 
         and {
-          asset_name == contract_treasury_marker_name,
-          asset_quantity < 0,
+          check_if_single_asset_burned(
+            tx_mint,
+            contract_policy_id,
+            contract_treasury_marker_name,
+          )?,
+          is_exchange_already_allowed?,
         }
-      }
       Recall ->
         // Treasury destruction (recalling EMP, unlocking base ADA, trashing empty treasury):
-        // - Redeemer: Recall.
-        // - Minting:
-        //   - burning is allowed only after `unlock_unclaimed_assets_time`,
-        //     or if the treasury UTXO contains no `payout_asset_pid.payout_asset_name` tokens;
-        // - Outputs:
-        //   - ensure that the only output goes to the address associated with `assets_owner_pcred`;
-        //   - ensure that there are no tx_outputs containing `contract_policy_id.contract_treasury_marker_name`.
-        todo @"Recall mint not implemented"
+        //
+        // Actually, there is no way to burn any marker without spending the contract's UTxO, 
+        // so the entire validation logic resides in the spending validator.
+        // Here, we only need to ensure that this is a burning transaction, not minting.
+
+        and {
+          check_if_single_asset_burned(
+            tx_mint,
+            contract_policy_id,
+            contract_treasury_marker_name,
+          )?,
+          is_recall_already_allowed?,
+        }
     }
   }
 
