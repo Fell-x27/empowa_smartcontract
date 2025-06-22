@@ -272,6 +272,10 @@ validator empowa_swap(
             |> to_outputs()
             |> find_outputs_by_address(contract_address, invert: False)
 
+        //   - Burning `contract_policy_id.contract_treasury_marker_name` is required if the treasury UTXO was fully consumed and emptied.
+        // - Outputs:
+        //   - If multiple treasuries were used as `tx_inputs` (because one was insufficient),
+        //     only one or none may remain in the `tx_outputs`.
         let (are_contract_inputs_optimal, consumed_treasury_count) =
           contract_inputs_outs
             |> l_map(
@@ -286,11 +290,18 @@ validator empowa_swap(
           contract_inputs_outs
             |> get_payout_assets_sum()
         //The same for the contract's outputs
-        let contract_output_payout_assets_amount =
+        let contract_outputs =
           tx_outputs
             |> find_outputs_by_address(contract_address, invert: False)
+
+        //The same for the contract's outputs
+        let contract_output_payout_assets_amount =
+          contract_outputs
             |> get_payout_assets_sum()
 
+        //   - Ensure that there is at most one contract output with `contract_policy_id.contract_treasury_marker_name` (exactly one item if any).
+        let is_there_no_more_than_one_contract_out =
+          length(contract_outputs) <= 1
         let contract_payout_is_fine =
           contract_input_payout_assets_amount - contract_output_payout_assets_amount == real_payouts_sum
 
@@ -326,13 +337,9 @@ validator empowa_swap(
           payouts_are_valid?,
           are_treasuries_removed_properly?,
           treasury_ada_sent_back_properly?,
+          is_there_no_more_than_one_contract_out?,
         }
       }
-      //   - Burning `contract_policy_id.contract_treasury_marker_name` is required if the treasury UTXO was fully consumed and emptied.
-      // - Outputs:
-      //   - If multiple treasuries were used as `tx_inputs` (because one was insufficient),
-      //     only one or none may remain in the `tx_outputs`.
-      //   - Ensure that there is at most one contract output with `contract_policy_id.contract_treasury_marker_name` (exactly one item if any).
       Recall ->
         // Treasury destruction (recalling EMP and unlocking base ADA):
         //  Minting:
