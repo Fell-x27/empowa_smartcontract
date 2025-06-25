@@ -331,8 +331,10 @@ validator empowa_swap(
         //   - Ensure that there is at most one contract output with `contract_policy_id.contract_treasury_marker_name` (exactly one item if any).
         let is_there_no_more_than_one_contract_out =
           length(contract_outputs) <= 1
-        let contract_payout_is_fine =
-          contract_input_payout_assets_amount - contract_output_payout_assets_amount == real_payouts_sum
+        let contract_payout_is_fine = and {
+            (contract_input_payout_assets_amount - contract_output_payout_assets_amount == real_payouts_sum)?,
+            (real_payouts_sum > 0)?,
+          }
 
         // trace contract_input_payout_assets_amount
         // trace contract_output_payout_assets_amount
