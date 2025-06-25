@@ -1,12 +1,11 @@
 use cardano/assets.{add, from_asset, from_asset_list, from_lovelace}
 use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
-use empowa_swap.{Bootstrap}
-use env.{
-  burn_nft_name, burn_nft_pid, contract_address, contract_policy_id,
+use config.{
   contract_treasury_base_quantity, contract_treasury_marker_name,
-  n2a_change_rate, owner_address, payout_asset_name, payout_asset_pid,
-  start_change_time, unlock_unclaimed_assets_time, user_address, utxo_def_ref,
+  payout_asset_name, payout_asset_pid,
 }
+use empowa_swap.{Bootstrap}
+use env.{contract_address, contract_policy_id, user_address, utxo_def_ref}
 
 // This section contains a set of tests covering all edge cases related to treasury UTXO creation.
 
@@ -84,14 +83,6 @@ test succeed_bootstrap() {
     }
 
   empowa_swap.empowa_swap.mint(
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Bootstrap,
     contract_policy_id: contract_policy_id,
     tx: tx,
@@ -184,14 +175,6 @@ test failed_bootstrap_wrong_inputs() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Bootstrap,
     contract_policy_id: contract_policy_id,
     tx: tx,
@@ -272,14 +255,6 @@ test failed_bootstrap_random_asset_instead_marker_minted() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Bootstrap,
     contract_policy_id: contract_policy_id,
     tx: tx,
@@ -355,14 +330,6 @@ test failed_bootstrap_treasury_marker_stealing() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Bootstrap,
     contract_policy_id: contract_policy_id,
     tx: tx,
@@ -430,14 +397,6 @@ test failed_bootstrap_with_low_treasury_amount() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Bootstrap,
     contract_policy_id: contract_policy_id,
     tx: tx,
@@ -513,14 +472,6 @@ test failed_bootstrap_treasury_marker_overmint() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Bootstrap,
     contract_policy_id: contract_policy_id,
     tx: tx,
@@ -579,14 +530,6 @@ test failed_bootstrap_wrong_contract_outputs() fail {
     }
 
   empowa_swap.empowa_swap.mint(
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Bootstrap,
     contract_policy_id: contract_policy_id,
     tx: tx,

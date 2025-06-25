@@ -5,14 +5,19 @@ use cardano/assets.{
   ada_asset_name, ada_policy_id, from_asset, from_asset_list, from_lovelace,
 }
 use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
-use config.{contract_treasury_lovelace}
+use config.{
+  burn_nft_name, burn_nft_pid, contract_treasury_base_quantity,
+  contract_treasury_lovelace, contract_treasury_marker_name, n2a_change_rate,
+  payout_asset_name, payout_asset_pid, start_change_time,
+}
 use empowa_swap.{Exchange}
 use env.{
-  burn_nft_name, burn_nft_pid, contract_address, contract_policy_id,
-  contract_treasury_base_quantity, contract_treasury_marker_name,
-  n2a_change_rate, owner_address, payout_asset_name, payout_asset_pid,
-  start_change_time, unlock_unclaimed_assets_time, utxo_contract_ref,
+  contract_address, contract_policy_id, owner_address, utxo_contract_ref,
   utxo_def_ref,
+}
+
+fn get_user_addr(pfx) {
+  Address(VerificationKey(concat(pfx, "Some user")), None)
 }
 
 test succeed_exchange_treasury_part_consume() {
@@ -155,16 +160,7 @@ test succeed_exchange_treasury_part_consume() {
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   empowa_swap.empowa_swap.spend(
-    //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Exchange,
     contract_utxo: utxo_contract_ref,
     tx: tx,
@@ -301,29 +297,12 @@ test succeed_exchange_treasury_full_consume() {
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_policy_id: contract_policy_id,
       tx: tx,
@@ -504,29 +483,12 @@ test succeed_exchange_treasury_hybrid_consume() {
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_policy_id: contract_policy_id,
       tx: tx,
@@ -703,16 +665,7 @@ test succeed_exchange_extra_user_outputs() {
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   empowa_swap.empowa_swap.spend(
-    //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Exchange,
     contract_utxo: utxo_contract_ref,
     tx: tx,
@@ -879,16 +832,7 @@ test succeed_exchange_single_address_wallet() {
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   empowa_swap.empowa_swap.spend(
-    //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Exchange,
     contract_utxo: utxo_contract_ref,
     tx: tx,
@@ -948,16 +892,7 @@ test failed_exchange_no_payouts() fail {
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   empowa_swap.empowa_swap.spend(
-    //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Exchange,
     contract_utxo: utxo_contract_ref,
     tx: tx,
@@ -1031,16 +966,7 @@ test failed_exchange_no_user_inputs() fail {
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   empowa_swap.empowa_swap.spend(
-    //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Exchange,
     contract_utxo: utxo_contract_ref,
     tx: tx,
@@ -1124,16 +1050,7 @@ test failed_exchange_no_nft() fail {
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   empowa_swap.empowa_swap.spend(
-    //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Exchange,
     contract_utxo: utxo_contract_ref,
     tx: tx,
@@ -1280,16 +1197,7 @@ test failed_exchange_before_start_time() fail {
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   empowa_swap.empowa_swap.spend(
-    //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Exchange,
     contract_utxo: utxo_contract_ref,
     tx: tx,
@@ -1433,29 +1341,12 @@ test failed_exchange_treasury_full_consume_marker_not_burned() fail {
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_policy_id: contract_policy_id,
       tx: tx,
@@ -1657,29 +1548,12 @@ test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_policy_id: contract_policy_id,
       tx: tx,
@@ -1882,29 +1756,12 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_policy_id: contract_policy_id,
       tx: tx,
@@ -2054,16 +1911,7 @@ test failed_exchange_with_wrong_nft() fail {
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   empowa_swap.empowa_swap.spend(
-    //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Exchange,
     contract_utxo: utxo_contract_ref,
     tx: tx,
@@ -2228,16 +2076,7 @@ test failed_exchange_illegal_minting_attempt() fail {
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   empowa_swap.empowa_swap.spend(
-    //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Exchange,
     contract_utxo: utxo_contract_ref,
     tx: tx,
@@ -2383,29 +2222,12 @@ test failed_exchange_treasury_full_consume_ada_stealing() fail {
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_policy_id: contract_policy_id,
       tx: tx,
@@ -2554,16 +2376,7 @@ test failed_exchange_fake_payout() fail {
 
   // The transaction invokes both the `mint()` and `spend()` subvalidators.
   empowa_swap.empowa_swap.spend(
-    //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Exchange,
     contract_utxo: utxo_contract_ref,
     tx: tx,

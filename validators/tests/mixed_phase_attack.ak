@@ -2,13 +2,15 @@ use aiken/interval.{entirely_after}
 use aiken/primitive/bytearray.{concat}
 use cardano/assets.{from_asset, from_asset_list}
 use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
+use config.{
+  burn_nft_name, burn_nft_pid, contract_treasury_base_quantity,
+  contract_treasury_marker_name, n2a_change_rate, payout_asset_name,
+  payout_asset_pid, start_change_time, unlock_unclaimed_assets_time,
+}
 use empowa_swap.{Bootstrap, Exchange, Recall}
 use env.{
-  burn_nft_name, burn_nft_pid, contract_address, contract_policy_id,
-  contract_treasury_base_quantity, contract_treasury_marker_name,
-  n2a_change_rate, owner_address, payout_asset_name, payout_asset_pid,
-  start_change_time, unlock_unclaimed_assets_time, user_address,
-  utxo_contract_ref, utxo_def_ref,
+  contract_address, contract_policy_id, user_address, utxo_contract_ref,
+  utxo_def_ref,
 }
 
 // Tests covering the mixed redeemer cases
@@ -64,29 +66,12 @@ test mixed_phase_attack_change_n_bootstrap() fail {
 
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Bootstrap,
       contract_policy_id: contract_policy_id,
       tx: tx,
@@ -181,29 +166,12 @@ test mixed_phase_attack_change_n_recall() fail {
 
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Exchange,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Recall,
       contract_policy_id: contract_policy_id,
       tx: tx,

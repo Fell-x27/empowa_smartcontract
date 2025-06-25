@@ -1,13 +1,14 @@
 use aiken/interval.{before, entirely_after}
 use cardano/assets.{from_asset, from_asset_list, from_lovelace}
 use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
-use config.{contract_treasury_lovelace}
+use config.{
+  contract_treasury_base_quantity, contract_treasury_lovelace,
+  contract_treasury_marker_name, payout_asset_name, payout_asset_pid,
+  unlock_unclaimed_assets_time,
+}
 use empowa_swap.{Recall}
 use env.{
-  burn_nft_name, burn_nft_pid, contract_address, contract_policy_id,
-  contract_treasury_base_quantity, contract_treasury_marker_name,
-  n2a_change_rate, owner_address, payout_asset_name, payout_asset_pid,
-  start_change_time, unlock_unclaimed_assets_time, user_address,
+  contract_address, contract_policy_id, owner_address, user_address,
   utxo_contract_ref,
 }
 
@@ -61,29 +62,12 @@ test succeed_recall() {
 
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Recall,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Recall,
       contract_policy_id: contract_policy_id,
       tx: tx,
@@ -126,14 +110,6 @@ test succeed_recall_non_treasury_utxo() {
   empowa_swap.empowa_swap.spend(
     //datum
     None,
-    payout_asset_pid: payout_asset_pid,
-    payout_asset_name: payout_asset_name,
-    burn_nft_pid: burn_nft_pid,
-    burn_nft_name: burn_nft_name,
-    n2a_change_rate: n2a_change_rate,
-    start_change_time: start_change_time,
-    unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-    owner_address: owner_address,
     redeemer: Recall,
     contract_utxo: utxo_contract_ref,
     tx: tx,
@@ -197,29 +173,12 @@ test failed_recall_to_many_outputs() fail {
 
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Recall,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Recall,
       contract_policy_id: contract_policy_id,
       tx: tx,
@@ -275,29 +234,12 @@ test failed_recall_to_user_address() fail {
 
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Recall,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Recall,
       contract_policy_id: contract_policy_id,
       tx: tx,
@@ -353,29 +295,12 @@ test failed_recall_before_timelock() fail {
 
   and {
     empowa_swap.empowa_swap.spend(
-      //datum
       None,
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Recall,
       contract_utxo: utxo_contract_ref,
       tx: tx,
     ),
     empowa_swap.empowa_swap.mint(
-      payout_asset_pid: payout_asset_pid,
-      payout_asset_name: payout_asset_name,
-      burn_nft_pid: burn_nft_pid,
-      burn_nft_name: burn_nft_name,
-      n2a_change_rate: n2a_change_rate,
-      start_change_time: start_change_time,
-      unlock_unclaimed_assets_time: unlock_unclaimed_assets_time,
-      owner_address: owner_address,
       redeemer: Recall,
       contract_policy_id: contract_policy_id,
       tx: tx,
