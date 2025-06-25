@@ -19,7 +19,7 @@ pub const contract_treasury_base_quantity =
 
 pub const start_change_time = config.contract_exchange_start_after
 
-pub const unlock_unclaimed_assets_time = 10
+pub const unlock_unclaimed_assets_time = start_change_time + 1
 
 pub const assets_owner_pcred = VerificationKey("EMP owner")
 

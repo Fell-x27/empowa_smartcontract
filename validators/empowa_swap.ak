@@ -272,18 +272,21 @@ validator empowa_swap(
         let real_payouts_sum =
           real_payouts
             |> l_reduce(0, fn(sum, Pair(_, amount)) { sum + amount })
-        //Collect all contrac's inputs and calculate input EMPs
+        //Collect all contract's inputs and calculate input EMPs
         let get_payout_assets_sum =
           fn(outputs: List<Output>) -> Int {
             outputs
               |> l_reduce(
                   0,
                   fn(sum, Output { value, .. }) {
-                    if quantity_of(
-                      value,
-                      contract_policy_id,
-                      contract_treasury_marker_name,
-                    ) == 1 {
+                    let markers_amount =
+                      quantity_of(
+                        value,
+                        contract_policy_id,
+                        contract_treasury_marker_name,
+                      )
+
+                    if (markers_amount == 1)? {
                       sum + quantity_of(
                         value,
                         payout_asset_pid,
@@ -322,8 +325,6 @@ validator empowa_swap(
         let contract_outputs =
           tx_outputs
             |> find_outputs_by_address(contract_address, invert: False)
-
-        //The same for the contract's outputs
         let contract_output_payout_assets_amount =
           contract_outputs
             |> get_payout_assets_sum()
