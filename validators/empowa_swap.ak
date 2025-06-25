@@ -1,22 +1,22 @@
-use aiken/collection/dict.{filter as d_filter, keys, to_pairs, values}
+use aiken/collection/dict.{filter as d_filter, to_pairs, values}
 use aiken/collection/list.{
-  all, any, difference, filter as l_filter, foldl as l_foldl, has, length,
-  map as l_map, reduce as l_reduce, sort,
+  all, any, difference, filter as l_filter, has, length, map as l_map,
+  reduce as l_reduce, sort,
 }
-use aiken/interval.{is_entirely_after, is_entirely_before}
-use aiken/primitive/bytearray.{starts_with}
+use aiken/collection/pairs.{insert_with_by_ascending_key}
+use aiken/interval.{is_entirely_after}
+use aiken/primitive/bytearray.{compare, starts_with}
 use aiken/primitive/int
-use cardano/address.{Address, PaymentCredential, Script, VerificationKey}
+use cardano/address.{Address, Script, VerificationKey}
 use cardano/assets.{
-  AssetName, PolicyId, Value, flatten, lovelace_of, policies, quantity_of,
-  tokens,
+  AssetName, PolicyId, Value, flatten, lovelace_of, quantity_of, tokens,
 }
 use cardano/transaction.{
   Input, Output, OutputReference, Transaction, find_input, find_script_outputs,
 }
 use config.{
-  contract_exchange_start_after, contract_treasury_base_quantity,
-  contract_treasury_lovelace, contract_treasury_marker_name,
+  contract_treasury_base_quantity, contract_treasury_lovelace,
+  contract_treasury_marker_name,
 }
 
 pub type Action {
@@ -46,20 +46,6 @@ fn address2pcred_as_bytes(Address { payment_credential, .. }) -> ByteArray {
     VerificationKey(bytes) -> bytes
     Script(bytes) -> bytes
   }
-}
-
-fn sort_payouts_by_addr(
-  payouts: List<Pair<Address, Int>>,
-) -> List<Pair<Address, Int>> {
-  payouts
-    |> sort(
-        fn(Pair(addr1, _), Pair(addr2, _)) {
-          bytearray.compare(
-            address2pcred_as_bytes(addr1),
-            address2pcred_as_bytes(addr2),
-          )
-        },
-      )
 }
 
 fn to_outputs(inputs: List<Input>) -> List<Output> {
@@ -116,6 +102,30 @@ fn validate_optimality(
       }
     }
   }
+}
+
+fn aggregate_payouts(
+  payouts: List<Pair<Address, Int>>,
+) -> List<Pair<Address, Int>> {
+  let add_integer =
+    fn(x, y) { x + y }
+  let addr_compare =
+    fn(addr1, addr2) {
+      compare(address2pcred_as_bytes(addr1), address2pcred_as_bytes(addr2))
+    }
+  payouts
+    |> l_reduce(
+        [],
+        fn(result, Pair(address, amount)) {
+          result
+            |> insert_with_by_ascending_key(
+                key: address,
+                value: amount,
+                compare: addr_compare,
+                with: add_integer,
+              )
+        },
+      )
 }
 
 validator empowa_swap(
@@ -233,8 +243,7 @@ validator empowa_swap(
                 },
               )
             |> l_filter(fn(Pair(_, amount)) { amount > 0 })
-            |> sort_payouts_by_addr()
-
+            |> aggregate_payouts()
         // Then fetch actual payouts
         let real_payouts =
           tx_outputs
@@ -249,7 +258,7 @@ validator empowa_swap(
                 },
               )
             |> l_filter(fn(Pair(_, amount)) { amount > 0 })
-            |> sort_payouts_by_addr()
+            |> aggregate_payouts()
         // Then compare actual payouts with expected ones
         let payouts_are_valid = real_payouts == expected_payouts
 
