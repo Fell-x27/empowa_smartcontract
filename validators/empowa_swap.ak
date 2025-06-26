@@ -491,6 +491,15 @@ validator empowa_swap {
         let is_there_no_more_than_one_contract_out =
           length(contract_outputs) <= 1
 
+        // Check if the `Base_ada` of `Treasury_UTxO`s remains untouched
+        let contract_output_ada_is_fine =
+          if length(contract_outputs) == 1 {
+            expect [Output { value, .. }] = contract_outputs
+            lovelace_of(value) == contract_treasury_lovelace
+          } else {
+            True
+          }
+
         // Verify that the difference between inputs and outputs equals the expected payout to ensure that the contract actually provided the funds
         // Otherwise, the user could satisfy the payout checks using their own assets
         let contract_payout_is_fine =
@@ -525,6 +534,7 @@ validator empowa_swap {
           contract_payout_is_fine?,
           are_treasuries_removed_properly?,
           treasury_ada_sent_back_properly?,
+          contract_output_ada_is_fine?,
         }
       }
       Recall -> {

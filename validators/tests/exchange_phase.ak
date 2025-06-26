@@ -20,6 +20,8 @@ fn get_user_addr(pfx) {
   Address(VerificationKey(concat(pfx, "Some user")), None)
 }
 
+// TODO: Update tests with the new requirement for the base ADA amount in the contract's outputs
+
 test succeed_exchange_treasury_part_consume() {
   // The user provides their own UTXOs as inputs, some of which contain assets with names starting with `burn_nft_pid.burn_nft_name*`.
   let user_input_0 =
