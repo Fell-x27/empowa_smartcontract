@@ -138,6 +138,42 @@ fn aggregate_payouts(
       )
 }
 
+fn verify_payouts(
+  real_po: List<Pair<Address, Int>>,
+  expected_po: List<Pair<Address, Int>>,
+  possible_delta: Int,
+  fix_applied: Bool,
+) -> Bool {
+  when [real_po, expected_po] is {
+    [[], []] -> True
+    [
+      [Pair(real_po_addr, real_po_amount), ..rest_real_po],
+      [Pair(expected_po_addr, expected_po_amount), ..rest_expected_po],
+    ] -> {
+      // Addresses must match
+      expect real_po_addr == expected_po_addr
+
+      // Then calculate the delta between real and expected payouts
+      let delta = real_po_amount - expected_po_amount
+
+      // It is ok when delta is 0, and acceptable if it equals `possible_delta` once
+      if delta == 0 || delta == possible_delta && !fix_applied {
+        // Valid real/expected payout delta, next step
+        verify_payouts(
+          rest_real_po,
+          rest_expected_po,
+          possible_delta,
+          fix_applied || delta == possible_delta,
+        )
+      } else {
+        // Unexpected delta, stop execution
+        False
+      }
+    }
+    _ -> fail @"Expected and real payouts must have the same length"
+  }
+}
+
 fn real_all(list: List<a>, predicate: fn(a) -> Bool) -> Bool {
   when list is {
     [] -> False
@@ -245,7 +281,9 @@ validator empowa_swap {
         //   - Ensure that no excess base ADA was withdrawn from the contract address, if any is present
         //   - Ensure that the real user payouts match their corresponding expected payouts, both by address and by the expected payout amount calculated from the burned NFTs
         //   - If multiple `Treasury_UTxO` were used as `tx_inputs` (because one was insufficient), no more than one may remain in `tx_outputs`
-        //   - If one or more `Treasury_UTxO` must be destroyed, ensure that its `Base_ada` is returned to the contract owner's address
+        //   - If one or more `Treasury_UTxO` were emptied, the `Treasury_marker` must be burned
+        //   - If one or more `Treasury_UTxO` were emptied, ensure that their `Base_ada` is returned to the contract owner's address
+        //   - Ensure that there is at most one contract output with `Treasury_marker` (exactly one item if any).
 
         //
         // Flatten the mint value to a list of (policy_id, asset_name, amount) tuples for further validation
@@ -336,6 +374,7 @@ validator empowa_swap {
             // There could be many payouts with the same address, so squash them into sorted list
             |> aggregate_payouts()
 
+        // Extract the payouts addresses list from `expected_payouts`
         let expected_payouts_addrs =
           expected_payouts
             |> keys()
@@ -354,10 +393,12 @@ validator empowa_swap {
                   )
                 },
               )
+
         // Then fetch `real payouts`
-        let real_payouts =
+        // At the same time, compare them with the expected payouts — if the sequence completes successfully, the real payouts are valid
+        let real_payouts_are_ok =
           user_outputs
-            // Scan their values and build the payouts list based on `PO_asset` quantity
+            // Scan user outputs values and build the payouts list based on `PO_asset` quantity
             |> l_map(
                 fn(Output { address: output_addr, value: output_val, .. }) -> Pair<Address,
                 Int> {
@@ -367,6 +408,7 @@ validator empowa_swap {
                   )
                 },
               )
+            // Remove items with zero payouts and addresses not present in `expected_payouts_addrs`
             |> l_filter(
                 fn(Pair(addr, amount)) {
                   and {
@@ -376,32 +418,22 @@ validator empowa_swap {
                   }
                 },
               )
+            // There could be many payouts with the same address, so squash them into sorted list
             |> aggregate_payouts()
-            |> l_map2(
-                expected_payouts,
-                fn(
-                  Pair(real_po_addr, real_po_amount),
-                  Pair(expected_po_addr, expected_po_amount),
-                ) {
-                  when real_po_amount - expected_po_amount is {
-                    0 -> Pair(real_po_addr, real_po_amount)
-                    some_val ->
-                      if some_val == user_own_payout_assets_quantity {
-                        Pair(expected_po_addr, expected_po_amount)
-                      } else {
-                        fail @"Wrong outputs"
-                      }
-                  }
-                },
+            // Then we need to compare them with the expected values (they should match)
+            // Also, if any of the real payouts includes a portion of `PO_asset` coming from the user's inputs, we have to account for that
+            |> verify_payouts(
+                expected_po: expected_payouts,
+                possible_delta: user_own_payout_assets_quantity,
+                fix_applied: False,
               )
-        // Then compare real payouts with expected ones
-        let payouts_are_valid = real_payouts == expected_payouts
 
-        // Calculate the real sum to be paid
-        let real_payouts_sum =
-          real_payouts
+        // Calculate the sum to be paid out
+        let expected_payouts_sum =
+          expected_payouts
             |> l_reduce(0, fn(sum, Pair(_, amount)) { sum + amount })
-        //Collect all contract's inputs and calculate input `PO_asset`s
+
+        // Local helper for calculating the total amount of `PO_assets` in the given outputs
         let get_payout_assets_sum =
           fn(outputs: List<Output>) -> Int {
             outputs
@@ -415,6 +447,7 @@ validator empowa_swap {
                         contract_treasury_marker_name,
                       )
 
+                    // Verify if contract's input is a valid `Treasury_UTxO`
                     if (markers_amount == 1)? {
                       sum + quantity_of(
                         value,
@@ -422,60 +455,64 @@ validator empowa_swap {
                         payout_asset_name,
                       )
                     } else {
+                      // Users may try to include previously sent garbage UTxOs at the contract address
+                      // Only legitimate contract-owned UTxOs should be used in the exchange logic
                       fail @"Invalid UTXO"
                     }
                   },
                 )
           }
 
-        //   - Burning `contract_policy_id.contract_treasury_marker_name` is required if the treasury UTXO was fully consumed and emptied.
-        // - Outputs:
+        // Inspect the contract's inputs to verify their optimality and return the count of consumed `Treasury_UTxO`s
         let (are_contract_inputs_optimal, consumed_treasury_count) =
           contract_inputs_outputs
+            // Convert each contract input to the amount of `PO_asset` it contains
             |> l_map(
                 fn(Output { value, .. }) {
                   quantity_of(value, payout_asset_pid, payout_asset_name)
                 },
               )
+            // Sort them
             |> sort(int.compare)
-            |> validate_optimality(real_payouts_sum, 0, 0)
+            // Check if they are optimal
+            |> validate_optimality(expected_payouts_sum, 0, 0)
 
+        // Calculate total contract's inputs sum with the local helper
         let contract_input_payout_assets_amount =
           contract_inputs_outputs
             |> get_payout_assets_sum()
 
-        //The same for the contract's outputs
+        // The same for the contract's outputs
         let contract_output_payout_assets_amount =
           contract_outputs
             |> get_payout_assets_sum()
 
-        //   - Ensure that there is at most one contract output with `contract_policy_id.contract_treasury_marker_name` (exactly one item if any).
+        // Check if there is 1 contract output at most
         let is_there_no_more_than_one_contract_out =
           length(contract_outputs) <= 1
-        let contract_payout_is_fine = and {
-            (contract_input_payout_assets_amount - contract_output_payout_assets_amount == real_payouts_sum)?,
-            (real_payouts_sum > 0)?,
-          }
 
-        // trace contract_input_payout_assets_amount
-        // trace contract_output_payout_assets_amount
-        // trace real_payouts_sum
-        // If any treasury was consumed and its marker burned, ensure that any remaining base ADA from it was sent to the owner.
+        // Verify that the difference between inputs and outputs equals the expected payout to ensure that the contract actually provided the funds
+        // Otherwise, the user could satisfy the payout checks using their own assets
+        let contract_payout_is_fine =
+          (contract_input_payout_assets_amount - contract_output_payout_assets_amount == expected_payouts_sum)?
+
+        // Check whether the `Treasury_markers` were properly burned
         let are_treasuries_removed_properly =
           consumed_treasury_count == length(burned_markers)
 
+        // If any `Treasury_UTxO` was consumed and its `Treasury_marker` burned, ensure that any remaining base ADA was sent to the contract owner
         let treasury_ada_sent_back_properly =
           if consumed_treasury_count == 0 {
             True
           } else {
-            // Ensure that there is an owner-related output
+            // Ensure that there is exactly one output related to the contract owner
             expect [owner_output] =
               tx_outputs
                 |> find_outputs_by_payment_cred(
                     VerificationKey(owner_key_hash),
                     invert: False,
                   )
-
+            // Ensure that the owner received the full amount of released base ADA
             lovelace_of(owner_output.value) == consumed_treasury_count * contract_treasury_lovelace
           }
 
@@ -483,7 +520,7 @@ validator empowa_swap {
           is_exchange_already_allowed?,
           are_contract_inputs_optimal?,
           mint_is_valid?,
-          payouts_are_valid?,
+          real_payouts_are_ok?,
           is_there_no_more_than_one_contract_out?,
           contract_payout_is_fine?,
           are_treasuries_removed_properly?,
