@@ -173,6 +173,26 @@ validator empowa_swap {
       ..
     }) = find_input(tx_inputs, contract_utxo)
 
+    let input_outputs =
+      tx_inputs
+        |> to_outputs()
+
+    let contract_inputs_outputs =
+      input_outputs
+        |> find_outputs_by_payment_cred(contract_payment_cred, invert: False)
+
+    let user_inputs_outputs =
+      input_outputs
+        |> find_outputs_by_payment_cred(contract_payment_cred, invert: True)
+
+    let contract_outputs =
+      tx_outputs
+        |> find_outputs_by_payment_cred(contract_payment_cred, invert: False)
+
+    let user_outputs =
+      tx_outputs
+        |> find_outputs_by_payment_cred(contract_payment_cred, invert: True)
+
     // Extract contract's policy ID from its payment credential (the policy ID is the hash of the contract's script, which is used as the payment credential)
     expect Script(contract_policy_id) = contract_payment_cred
 
@@ -279,11 +299,7 @@ validator empowa_swap {
 
         // Build a list of addresses which hold burned nfts and calculate `expected payouts`
         let expected_payouts =
-          tx_inputs
-            // Extract UTxOs from all inputs
-            |> to_outputs()
-            // Extract NON-contract inputs
-            |> find_outputs_by_payment_cred(contract_payment_cred, invert: True)
+          user_inputs_outputs
             // Scan their values and build the payouts list based on `burned_nfts` list
             |> l_map(
                 fn(Output { address: input_addr, value: input_val, .. }) {
@@ -326,10 +342,7 @@ validator empowa_swap {
 
         // If the user already has some `PO_asset`, we need to account for it for future calculations
         let user_own_payout_assets_quantity =
-          tx_inputs
-            |> to_outputs()
-            // Extract NON-contract inputs
-            |> find_outputs_by_payment_cred(contract_payment_cred, invert: True)
+          user_inputs_outputs
             // Scan their values and calculate the `user_own_payout_assets_quantity`
             |> l_reduce(
                 0,
@@ -343,9 +356,7 @@ validator empowa_swap {
               )
         // Then fetch `real payouts`
         let real_payouts =
-          tx_outputs
-            // Extract NON-contract outputs
-            |> find_outputs_by_payment_cred(contract_payment_cred, invert: True)
+          user_outputs
             // Scan their values and build the payouts list based on `PO_asset` quantity
             |> l_map(
                 fn(Output { address: output_addr, value: output_val, .. }) -> Pair<Address,
@@ -417,18 +428,10 @@ validator empowa_swap {
                 )
           }
 
-        let contract_inputs_outs =
-          tx_inputs
-            |> to_outputs()
-            |> find_outputs_by_payment_cred(
-                contract_payment_cred,
-                invert: False,
-              )
-
         //   - Burning `contract_policy_id.contract_treasury_marker_name` is required if the treasury UTXO was fully consumed and emptied.
         // - Outputs:
         let (are_contract_inputs_optimal, consumed_treasury_count) =
-          contract_inputs_outs
+          contract_inputs_outputs
             |> l_map(
                 fn(Output { value, .. }) {
                   quantity_of(value, payout_asset_pid, payout_asset_name)
@@ -438,15 +441,10 @@ validator empowa_swap {
             |> validate_optimality(real_payouts_sum, 0, 0)
 
         let contract_input_payout_assets_amount =
-          contract_inputs_outs
+          contract_inputs_outputs
             |> get_payout_assets_sum()
+
         //The same for the contract's outputs
-        let contract_outputs =
-          tx_outputs
-            |> find_outputs_by_payment_cred(
-                contract_payment_cred,
-                invert: False,
-              )
         let contract_output_payout_assets_amount =
           contract_outputs
             |> get_payout_assets_sum()
