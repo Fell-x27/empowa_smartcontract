@@ -167,6 +167,335 @@ test succeed_exchange_treasury_part_consume() {
   )
 }
 
+test succeed_exchange_with_payment_assets_in_inputs_come_to_3rd_address() {
+  // What if the user already has some payment assets in their UTxO?
+  // We can see them in the outputs, but we shouldn't treat them as a real payout!
+  // If they come to an address not involved in the payouts, we are allowed to ignore them
+  //
+  //
+  let user_own_payout_asset_quantity = 1000
+  // The user provides their own UTXOs as inputs, some of which contain assets with names starting with `burn_nft_pid.burn_nft_name*`.
+  let user_input_0 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: get_user_addr("1"),
+        value: from_asset_list(
+          [
+            Pair(
+              burn_nft_pid,
+              [
+                Pair(concat(burn_nft_name, "01"), 1),
+                Pair(concat(burn_nft_name, "02"), 1),
+                Pair(concat(burn_nft_name, "03"), 1),
+              ],
+            ),
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, user_own_payout_asset_quantity)],
+            ),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  let user_input_1 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: get_user_addr("2"),
+        value: from_asset_list(
+          [
+            Pair(
+              burn_nft_pid,
+              [
+                Pair(concat(burn_nft_name, "04"), 1),
+                Pair(concat(burn_nft_name, "05"), 1),
+                Pair(concat(burn_nft_name, "06"), 1),
+              ],
+            ),
+            Pair("any_another_nft", [Pair("any_asset", 10)]),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
+  let contract_input =
+    Input(
+      utxo_contract_ref,
+      Output {
+        address: contract_address,
+        value: from_asset_list(
+          [
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            ),
+            Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  // The user requests to burn some of their NFTs (not necessarily all of them).
+  let nft_burning =
+    from_asset_list(
+      [
+        Pair(
+          burn_nft_pid,
+          [
+            Pair(concat(burn_nft_name, "01"), -1),
+            Pair(concat(burn_nft_name, "03"), -1),
+            Pair(concat(burn_nft_name, "06"), -1),
+          ],
+        ),
+      ],
+    )
+
+  // The user expects to receive EMP according to the established exchange rate.
+  let user_output_0 =
+    Output {
+      address: get_user_addr("1"),
+      value: from_asset(
+        payout_asset_pid,
+        payout_asset_name,
+        n2a_change_rate * 2,
+      ),
+      //^ 2 NFTs from the first addr were burned
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let user_output_1 =
+    Output {
+      address: get_user_addr("2"),
+      value: from_asset(payout_asset_pid, payout_asset_name, n2a_change_rate),
+      // ^ 1 NFT from the second addr was burned
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let user_output_2 =
+    Output {
+      address: get_user_addr("0"),
+      value: from_asset(
+        payout_asset_pid,
+        payout_asset_name,
+        user_own_payout_asset_quantity,
+      ),
+      // an existing `user_own_payout_asset_quantity` was sent to 3rd address
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  // The contract expects the change (leftover EMP) to be returned to a treasury UTXO, marked with a treasury marker.
+  let contract_output =
+    Output {
+      address: contract_address,
+      value: from_asset_list(
+        [
+          Pair(
+            payout_asset_pid,
+            [
+              Pair(
+                payout_asset_name,
+                contract_treasury_base_quantity - n2a_change_rate * 3,
+              ),
+            ],
+          ),
+          // ^ 3 NFTs were burned; the treasury balance was reduced accordingly.
+          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+        ],
+      ),
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let tx =
+    Transaction {
+      ..placeholder,
+      inputs: [user_input_0, user_input_1, contract_input],
+      outputs: [user_output_1, user_output_0, user_output_2, contract_output],
+      mint: nft_burning,
+      validity_range: entirely_after(start_change_time),
+    }
+
+  // The transaction invokes both the `mint()` and `spend()` subvalidators.
+  empowa_swap.empowa_swap.spend(
+    None,
+    redeemer: Exchange,
+    contract_utxo: utxo_contract_ref,
+    tx: tx,
+  )
+}
+
+test succeed_exchange_with_payment_assets_in_inputs_come_to_payout_involved_address() {
+  // What if the user already has some payment assets in their UTxO?
+  // We can see them in the outputs, but we shouldn't treat them as a real payout!
+  // If they come to an address involved in the payouts, we have to account for them properly
+  //
+  //
+  let user_own_payout_asset_quantity = 1000
+  // The user provides their own UTXOs as inputs, some of which contain assets with names starting with `burn_nft_pid.burn_nft_name*`.
+  let user_input_0 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: get_user_addr("0"),
+        value: from_asset_list(
+          [
+            Pair(
+              burn_nft_pid,
+              [
+                Pair(concat(burn_nft_name, "01"), 1),
+                Pair(concat(burn_nft_name, "02"), 1),
+                Pair(concat(burn_nft_name, "03"), 1),
+              ],
+            ),
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, user_own_payout_asset_quantity)],
+            ),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  let user_input_1 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: get_user_addr("1"),
+        value: from_asset_list(
+          [
+            Pair(
+              burn_nft_pid,
+              [
+                Pair(concat(burn_nft_name, "04"), 1),
+                Pair(concat(burn_nft_name, "05"), 1),
+                Pair(concat(burn_nft_name, "06"), 1),
+              ],
+            ),
+            Pair("any_another_nft", [Pair("any_asset", 10)]),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
+  let contract_input =
+    Input(
+      utxo_contract_ref,
+      Output {
+        address: contract_address,
+        value: from_asset_list(
+          [
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            ),
+            Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  // The user requests to burn some of their NFTs (not necessarily all of them).
+  let nft_burning =
+    from_asset_list(
+      [
+        Pair(
+          burn_nft_pid,
+          [
+            Pair(concat(burn_nft_name, "01"), -1),
+            Pair(concat(burn_nft_name, "03"), -1),
+            Pair(concat(burn_nft_name, "06"), -1),
+          ],
+        ),
+      ],
+    )
+
+  // The user expects to receive EMP according to the established exchange rate.
+  let user_output_0 =
+    Output {
+      address: get_user_addr("0"),
+      value: from_asset(
+        payout_asset_pid,
+        payout_asset_name,
+        n2a_change_rate * 2,
+      ),
+      //^ 2 NFTs from the first addr were burned
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let user_output_1 =
+    Output {
+      address: get_user_addr("1"),
+      value: from_asset(
+        payout_asset_pid,
+        payout_asset_name,
+        n2a_change_rate + user_own_payout_asset_quantity,
+      ),
+      // ^ 1 NFT from the second addr was burned, but an existing `user_own_payout_asset_quantity` was added
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  // The contract expects the change (leftover EMP) to be returned to a treasury UTXO, marked with a treasury marker.
+  let contract_output =
+    Output {
+      address: contract_address,
+      value: from_asset_list(
+        [
+          Pair(
+            payout_asset_pid,
+            [
+              Pair(
+                payout_asset_name,
+                contract_treasury_base_quantity - n2a_change_rate * 3,
+              ),
+            ],
+          ),
+          // ^ 3 NFTs were burned; the treasury balance was reduced accordingly.
+          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+        ],
+      ),
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let tx =
+    Transaction {
+      ..placeholder,
+      inputs: [user_input_0, user_input_1, contract_input],
+      outputs: [user_output_1, user_output_0, contract_output],
+      mint: nft_burning,
+      validity_range: entirely_after(start_change_time),
+    }
+
+  // The transaction invokes both the `mint()` and `spend()` subvalidators.
+  empowa_swap.empowa_swap.spend(
+    None,
+    redeemer: Exchange,
+    contract_utxo: utxo_contract_ref,
+    tx: tx,
+  )
+}
+
 test succeed_exchange_treasury_full_consume() {
   // What if the entire treasury is legitimately taken by the user?
   // Its marker should be burned, and the ADA should be sent to `owner_address`.

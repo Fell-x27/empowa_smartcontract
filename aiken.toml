@@ -1,9 +1,9 @@
 name = "fell-x27/empowa_swap"
-version = "0.0.1"
+version = "1.0"
 compiler = "v1.1.17"
 plutus = "v3"
 license = "Apache-2.0"
-description = "Aiken contracts for project 'fell-x27/empowa_swap'"
+description = "Aiken contract for project 'fell-x27/empowa_swap'"
 
 [repository]
 user = "fell-x27"
@@ -16,6 +16,20 @@ version = "v2.2.0"
 source = "github"
 
 [config.default]
+contract_treasury_marker_name = "TRS"
+contract_treasury_lovelace = 5_000_000
+contract_exchange_start_after = 1_234_567
+contract_treasury_base_quantity = 11_000
+payout_asset_pid = "EMP_pid"
+payout_asset_name = "EMP"
+burn_nft_pid = "EMP_nft_pid"
+burn_nft_name = "EMP_nft"
+n2a_change_rate = 1100
+start_change_time = 1000
+unlock_unclaimed_assets_time = 2000
+owner_key_hash = "owner_key_hash"
+
+[config.test]
 contract_treasury_marker_name = "TRS"
 contract_treasury_lovelace = 5_000_000
 contract_exchange_start_after = 1_234_567

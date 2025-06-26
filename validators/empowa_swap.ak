@@ -1,15 +1,19 @@
+////////////////////
+////////////////////
+
 use aiken/collection/dict.{filter as d_filter, to_pairs, values}
 use aiken/collection/list.{
   all, any, difference, filter as l_filter, has, length, map as l_map,
-  reduce as l_reduce, sort,
+  map2 as l_map2, reduce as l_reduce, sort,
 }
-use aiken/collection/pairs.{insert_with_by_ascending_key}
+use aiken/collection/pairs.{insert_with_by_ascending_key, keys}
 use aiken/interval.{is_entirely_after}
 use aiken/primitive/bytearray.{compare, starts_with}
 use aiken/primitive/int
 use cardano/address.{Address, PaymentCredential, Script, VerificationKey}
 use cardano/assets.{
-  AssetName, PolicyId, Value, flatten, lovelace_of, quantity_of, tokens,
+  AssetName, PolicyId, Value, flatten, is_zero, lovelace_of, quantity_of,
+  reduce as v_reduce, tokens,
 }
 use cardano/transaction.{
   Input, Output, OutputReference, Transaction, find_input, find_script_outputs,
@@ -114,14 +118,6 @@ fn validate_optimality(
 fn aggregate_payouts(
   payouts: List<Pair<Address, Int>>,
 ) -> List<Pair<Address, Int>> {
-  let add_integer =
-    fn(x, y) { x + y }
-  //
-  let addr_compare =
-    fn(addr1, addr2) {
-      compare(address2pcred_as_bytes(addr1), address2pcred_as_bytes(addr2))
-    }
-  //
   payouts
     |> l_reduce(
         [],
@@ -130,11 +126,23 @@ fn aggregate_payouts(
             |> insert_with_by_ascending_key(
                 key: address,
                 value: amount,
-                compare: addr_compare,
-                with: add_integer,
+                compare: fn(addr1, addr2) {
+                  compare(
+                    address2pcred_as_bytes(addr1),
+                    address2pcred_as_bytes(addr2),
+                  )
+                },
+                with: fn(x, y) { x + y },
               )
         },
       )
+}
+
+fn real_all(list: List<a>, predicate: fn(a) -> Bool) -> Bool {
+  when list is {
+    [] -> False
+    _ -> all(list, predicate)
+  }
 }
 
 validator empowa_swap {
@@ -148,40 +156,97 @@ validator empowa_swap {
       ..
     } = tx
 
+    // Check if the transaction's validity range is after start_change_time (i.e., the Exchange phase is open)
     let is_exchange_already_allowed =
       is_entirely_after(tx_validity_range, start_change_time)
 
+    // Check if the transaction's validity range is after unlock_unclaimed_assets_time (i.e., the Recall phase is open)
     let is_recall_already_allowed =
       is_entirely_after(tx_validity_range, unlock_unclaimed_assets_time)
 
-    expect Some(Input { output: Output { address: contract_address, .. }, .. }) =
-      find_input(tx_inputs, contract_utxo)
+    // Extract contract's payment credential from its UTxO
+    expect Some(Input {
+      output: Output {
+        address: Address { payment_credential: contract_payment_cred, .. },
+        ..
+      },
+      ..
+    }) = find_input(tx_inputs, contract_utxo)
 
-    let Address { payment_credential: contract_payment_cred, .. } =
-      contract_address
-
+    // Extract contract's policy ID from its payment credential (the policy ID is the hash of the contract's script, which is used as the payment credential)
     expect Script(contract_policy_id) = contract_payment_cred
 
+    // Determine the contract's phase
     when redeemer is {
       Exchange -> {
-        // Exchange (sending EMP):
+        // Exchange phase (burning NFT, sending `PO_asset`):
+        // - Definitions:
+        //   - PO_asset = the `payout_asset_pid.payout_asset_name` asset
+        //   - Receipt_NFT = NFT with the `burn_nft_pid` policy and a name starting with `burn_nft_name`
+        //   - Treasury_marker = a service token marking a Treasury_UTxO at the smart contract address
+        //   - Treasury_UTxO = a UTxO belonging to the smart contract, containing 1 `Treasury_marker` and some amount of `PO_asset`
+        //   - Exchange_rate = the exchange rate from Receipt_NFT to PO_asset, defined as a contract parameter
+        //   - Base_ada = a certain amount of ada required to create a UTxO with an asset; it may be returned in raw form if the asset is burned
+        //
+        // -----------------------------
+        //
+        // TX structure
+        // - Inputs:
+        //   - [REQUIRED (>=1)] `Treasury_UTxO`
+        //   - [REQUIRED (>=1)] User’s UTxO(s) containing some amount of `Receipt_NFT` (could contain some user's `PO_asset`)
+        //   - [OPTIONAL (>=0)] User’s UTxO(s) containing any other assets (e.g., to cover transaction fees) (could contain some user's `PO_asset`)
+        //
+        // - Outputs:
+        //   - [REQUIRED (>=1)] User outputs containing `PO_asset` in an amount equal to the number of burned `Receipt_NFT` × `Exchange_rate`,
+        //                      with one output per each address that held a burned `Receipt_NFT`
+        //
+        //   - [REQUIRED (0 ≤ n ≤ 1)] Smart contract output containing the remaining `Treasury_UTxO`
+        //                            only if `PO_asset` remains; otherwise, the `Treasury_UTxO` must be destroyed
+        //
+        //   - [OPTIONAL (1)] Smart contract owner’s output containing any `Base_ada` left after the destruction of a `Treasury_UTxO`, if applicable
+        //
         // - Minting:
-        //   - Ensure that at least one `burn_nft_pid.burn_nft_name...` NFT was burned, and that the resulting payouts
-        //     match the number and type of burned NFTs.
+        //   - [REQUIRED (>=1)] `Receipt_NFT` with a negative quantity (burned)
+        //   - [OPTIONAL (>=0)] `Treasury_marker` with a negative quantity (burned), but only if a `Treasury_UTxO` must be destroyed
+        //
+        // - Time range:
+        //   - [REQUIRED] A timestamp indicating when exchange operations are allowed to begin
+        //
+        // -----------------------------
+        //
+        // - Logic:
+        //   - Collect the list of burned `Receipt_NFT` (not necessarily equal to the full list of input `Receipt_NFT`)
+        //   - Ensure that at least one `Receipt_NFT` was burned
+        //   - Use the burn list and inputs to build a payouts map of the form "address:amount"
+        //   - If the user included their own `PO_asset` in the inputs, the full amount must be sent to one of their outputs and accounted for in the payout calculations
+        //   - Ensure that the amount of `PO_asset` in the `Treasury_UTxO` inputs covers the total amount to be paid to users
+        //   - Ensure that there are no redundant `Treasury_UTxOs`
+        //   - Ensure that the difference in `PO_asset` between the contract’s `tx_outputs` and `tx_inputs` equals the total user payouts
+        //   - Ensure that no excess base ADA was withdrawn from the contract address, if any is present
+        //   - Ensure that the real user payouts match their corresponding expected payouts, both by address and by the expected payout amount calculated from the burned NFTs
+        //   - If multiple `Treasury_UTxO` were used as `tx_inputs` (because one was insufficient), no more than one may remain in `tx_outputs`
+        //   - If one or more `Treasury_UTxO` must be destroyed, ensure that its `Base_ada` is returned to the contract owner's address
+
+        //
+        // Flatten the mint value to a list of (policy_id, asset_name, amount) tuples for further validation
         let flatten_mint = flatten(tx_mint)
 
-        // Check that no malicious minting occurred (e.g., extra free NFTs, `contract_policy_id.another_asset`)
+        // Check that no malicious minting occurred (e.g., extra free `Receipt_NFT`, `Treasury_marker`)
+        // Only negative mint amounts (<0) for `Receipt_NFT`, `Treasury_marker` are permitted; all other minting is disallowed for security.
         let mint_is_valid =
           flatten_mint
-            |> all(
+            |> real_all(
                 fn((policy_id, asset_name, mint_amount)) {
                   and {
+                    // Check if it is burning only
                     (mint_amount < 0)?,
                     or {
+                      // Check if the asset is a `Treasury_marker`
                       and {
                         policy_id == contract_policy_id,
                         asset_name == contract_treasury_marker_name,
                       },
+                      // Check if the asset is a `Receipt_NFT` with the correct policy and prefix
                       and {
                         policy_id == burn_nft_pid,
                         asset_name
@@ -191,12 +256,11 @@ validator empowa_swap {
                   }
                 },
               )
-
         // Then split into to 2 lists: NFTs and treasury_markers
+        // If any markers were burned, extract them first — it's more efficient in terms of CPU usage.
         let burned_markers =
           flatten_mint
             |> l_filter(
-                //Check if partition is better
                 fn((policy_id, asset_name, _)) {
                   and {
                     policy_id == contract_policy_id,
@@ -204,30 +268,31 @@ validator empowa_swap {
                   }
                 },
               )
+
+        // So the burned NFTs are the remaining part.
         let burned_nfts =
           flatten_mint
             |> difference(burned_markers)
-        // - Inputs:
-        //   - Collect the list of addresses holding `burn_nft_pid` NFTs with names starting with `burn_nft_name`,
-        //     and associate each with their expected payout amount.
-        //   - Ensure that each NFT input used for payout is also present in the transaction's burn list.
-        //   - Ensure that the amount of EMP in the contract-owned `tx_inputs` covers the total EMP to be paid to users.
-        //
-        // - Outputs:
-        //   - Ensure that all user `tx_outputs` match their corresponding `tx_inputs` (NFT holders),
-        //     both by address and by the expected payout amount calculated from the burned NFTs.
-        //
-        // Build a list of addresses which hold burned nfts and calculate expected payouts
+
+        // There must be at least one burned NFT in the transaction.
+        expect length(burned_nfts) > 0
+
+        // Build a list of addresses which hold burned nfts and calculate `expected payouts`
         let expected_payouts =
           tx_inputs
+            // Extract UTxOs from all inputs
             |> to_outputs()
+            // Extract NON-contract inputs
             |> find_outputs_by_payment_cred(contract_payment_cred, invert: True)
+            // Scan their values and build the payouts list based on `burned_nfts` list
             |> l_map(
                 fn(Output { address: input_addr, value: input_val, .. }) {
                   Pair(
                     input_addr,
                     input_val
+                      // Extract `Receipt_NFT` tokens from values
                       |> tokens(burn_nft_pid)
+                      // Filter them by checking if they are present in the `burned_nfts` list
                       |> d_filter(
                           fn(input_nft_name, input_nft_amount) {
                             burned_nfts
@@ -240,7 +305,9 @@ validator empowa_swap {
                                 )
                           },
                         )
+                      // Extract `Receipt_NFT` amounts
                       |> values()
+                      // Summarize them
                       |> l_reduce(
                           0,
                           fn(sum, val) { sum + val * n2a_change_rate },
@@ -248,12 +315,38 @@ validator empowa_swap {
                   )
                 },
               )
+            // There could be zero-valued payouts if address had no burned `Receipt_NFT`, so we need to remove them
             |> l_filter(fn(Pair(_, amount)) { amount > 0 })
+            // There could be many payouts with the same address, so squash them into sorted list
             |> aggregate_payouts()
-        // Then fetch actual payouts
+
+        let expected_payouts_addrs =
+          expected_payouts
+            |> keys()
+
+        // If the user already has some `PO_asset`, we need to account for it for future calculations
+        let user_own_payout_assets_quantity =
+          tx_inputs
+            |> to_outputs()
+            // Extract NON-contract inputs
+            |> find_outputs_by_payment_cred(contract_payment_cred, invert: True)
+            // Scan their values and calculate the `user_own_payout_assets_quantity`
+            |> l_reduce(
+                0,
+                fn(result, Output { value, .. }) {
+                  result + quantity_of(
+                    value,
+                    payout_asset_pid,
+                    payout_asset_name,
+                  )
+                },
+              )
+        // Then fetch `real payouts`
         let real_payouts =
           tx_outputs
+            // Extract NON-contract outputs
             |> find_outputs_by_payment_cred(contract_payment_cred, invert: True)
+            // Scan their values and build the payouts list based on `PO_asset` quantity
             |> l_map(
                 fn(Output { address: output_addr, value: output_val, .. }) -> Pair<Address,
                 Int> {
@@ -263,22 +356,41 @@ validator empowa_swap {
                   )
                 },
               )
-            |> l_filter(fn(Pair(_, amount)) { amount > 0 })
+            |> l_filter(
+                fn(Pair(addr, amount)) {
+                  and {
+                    amount > 0,
+                    expected_payouts_addrs
+                      |> has(addr),
+                  }
+                },
+              )
             |> aggregate_payouts()
-        // Then compare actual payouts with expected ones
+            |> l_map2(
+                expected_payouts,
+                fn(
+                  Pair(real_po_addr, real_po_amount),
+                  Pair(expected_po_addr, expected_po_amount),
+                ) {
+                  when real_po_amount - expected_po_amount is {
+                    0 -> Pair(real_po_addr, real_po_amount)
+                    some_val ->
+                      if some_val == user_own_payout_assets_quantity {
+                        Pair(expected_po_addr, expected_po_amount)
+                      } else {
+                        fail @"Wrong outputs"
+                      }
+                  }
+                },
+              )
+        // Then compare real payouts with expected ones
         let payouts_are_valid = real_payouts == expected_payouts
 
-        // - Inputs:
-        //   - Ensure that there are no redundant treqsury-UTXO
-        // - Outputs:
-        //   - Ensure that the EMP difference between the contract's `tx_outputs` and `tx_inputs` equals the sum of all user payouts.
-        //   - Ensure that no excess base ADA was withdrawn from the contract address, if any is present.
-        //
         // Calculate the real sum to be paid
         let real_payouts_sum =
           real_payouts
             |> l_reduce(0, fn(sum, Pair(_, amount)) { sum + amount })
-        //Collect all contract's inputs and calculate input EMPs
+        //Collect all contract's inputs and calculate input `PO_asset`s
         let get_payout_assets_sum =
           fn(outputs: List<Output>) -> Int {
             outputs
@@ -315,8 +427,6 @@ validator empowa_swap {
 
         //   - Burning `contract_policy_id.contract_treasury_marker_name` is required if the treasury UTXO was fully consumed and emptied.
         // - Outputs:
-        //   - If multiple treasuries were used as `tx_inputs` (because one was insufficient),
-        //     only one or none may remain in the `tx_outputs`.
         let (are_contract_inputs_optimal, consumed_treasury_count) =
           contract_inputs_outs
             |> l_map(
@@ -374,16 +484,16 @@ validator empowa_swap {
         and {
           is_exchange_already_allowed?,
           are_contract_inputs_optimal?,
-          contract_payout_is_fine?,
           mint_is_valid?,
           payouts_are_valid?,
+          is_there_no_more_than_one_contract_out?,
+          contract_payout_is_fine?,
           are_treasuries_removed_properly?,
           treasury_ada_sent_back_properly?,
-          is_there_no_more_than_one_contract_out?,
         }
       }
       Recall -> {
-        // Treasury destruction (recalling EMP, unlocking base ADA, trashing empty treasury):
+        // Treasury destruction (recalling `PO_asset`, unlocking base ADA, trashing empty treasury):
         // - Redeemer: Recall.
         // - Minting:
         //   - burning is allowed only after `unlock_unclaimed_assets_time`;
@@ -458,9 +568,9 @@ validator empowa_swap {
           )
 
         // - Outputs:
-        //   - verify that N EMP are sent to the contract address along with the `contract_policy_id.contract_treasury_marker_name` asset;
+        //   - verify that N `PO_asset` are sent to the contract address along with the `contract_policy_id.contract_treasury_marker_name` asset;
         // - AmountLock:
-        //   - it's not allowed to create a treasury with less than 10,000 EMP;
+        //   - it's not allowed to create a treasury with less than 10,000 `PO_asset`;
         //   - it's not allowed to create a treasury with `contract_policy_id.contract_treasury_marker_name` != 1 .
         let contract_outputs =
           find_script_outputs(tx_outputs, contract_policy_id)
@@ -503,7 +613,7 @@ validator empowa_swap {
       }
 
       Exchange ->
-        // Exchange (sending EMP): 
+        // Exchange (sending `PO_asset`): 
         // - Ensure that the burned `contract_policy_id.contract_treasury_marker_name` comes from the single UTXO sent to the contract address.        
         //
         // Actually, there is no way to burn any marker without spending the contract's UTxO, 
@@ -519,7 +629,7 @@ validator empowa_swap {
           is_exchange_already_allowed?,
         }
       Recall ->
-        // Treasury destruction (recalling EMP, unlocking base ADA, trashing empty treasury):
+        // Treasury destruction (recalling `PO_asset`, unlocking base ADA, trashing empty treasury):
         //
         // Actually, there is no way to burn any marker without spending the contract's UTxO, 
         // so the entire validation logic resides in the spending validator.
