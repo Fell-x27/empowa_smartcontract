@@ -6,11 +6,12 @@ use config.{
   contract_treasury_marker_name, payout_asset_name, payout_asset_pid,
   unlock_unclaimed_assets_time,
 }
-use empowa_swap.{Recall}
+use empowa_swap
 use env.{
   contract_address, contract_policy_id, owner_address, user_address,
   utxo_contract_ref,
 }
+use types.{Recall}
 
 // After a certain time range, we should be able to recall any remaining UTXOs from the contract's address.
 

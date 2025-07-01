@@ -7,11 +7,12 @@ use config.{
   contract_treasury_marker_name, n2a_change_rate, payout_asset_name,
   payout_asset_pid, start_change_time, unlock_unclaimed_assets_time,
 }
-use empowa_swap.{Bootstrap, Exchange, Recall}
+use empowa_swap
 use env.{
   contract_address, contract_policy_id, user_address, utxo_contract_ref,
   utxo_def_ref,
 }
+use types.{Bootstrap, Exchange, Recall}
 
 // Tests covering the mixed redeemer cases
 

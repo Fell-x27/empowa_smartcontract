@@ -1,11 +1,14 @@
-use cardano/assets.{add, from_asset, from_asset_list, from_lovelace}
+use cardano/assets.{
+  ada_asset_name, ada_policy_id, add, from_asset, from_asset_list, from_lovelace,
+}
 use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
 use config.{
-  contract_treasury_base_quantity, contract_treasury_marker_name,
-  payout_asset_name, payout_asset_pid,
+  contract_treasury_base_quantity, contract_treasury_lovelace,
+  contract_treasury_marker_name, payout_asset_name, payout_asset_pid,
 }
-use empowa_swap.{Bootstrap}
+use empowa_swap
 use env.{contract_address, contract_policy_id, user_address, utxo_def_ref}
+use types.{Bootstrap}
 
 // This section contains a set of tests covering all edge cases related to treasury UTXO creation.
 
@@ -41,7 +44,7 @@ test succeed_bootstrap() {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_lovelace(5_000_000),
+        value: from_lovelace(contract_treasury_lovelace),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
         reference_script: None,
@@ -61,6 +64,10 @@ test succeed_bootstrap() {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [Pair(payout_asset_name, contract_treasury_base_quantity)],
@@ -139,6 +146,10 @@ test failed_bootstrap_wrong_inputs() fail {
       value: from_asset_list(
         [
           Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
+          Pair(
             payout_asset_pid,
             [Pair(payout_asset_name, contract_treasury_base_quantity)],
           ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
@@ -153,6 +164,10 @@ test failed_bootstrap_wrong_inputs() fail {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [Pair(payout_asset_name, contract_treasury_base_quantity)],
@@ -234,6 +249,10 @@ test failed_bootstrap_random_asset_instead_marker_minted() fail {
       value: from_asset_list(
         [
           Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
+          Pair(
             payout_asset_pid,
             [Pair(payout_asset_name, contract_treasury_base_quantity)],
           ), Pair(contract_policy_id, [Pair("wrong asset name", 1)]),
@@ -309,6 +328,10 @@ test failed_bootstrap_treasury_marker_stealing() fail {
       value: from_asset_list(
         [
           Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
+          Pair(
             payout_asset_pid,
             [Pair(payout_asset_name, contract_treasury_base_quantity)],
           ),
@@ -377,7 +400,84 @@ test failed_bootstrap_with_low_treasury_amount() fail {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(payout_asset_pid, [Pair(payout_asset_name, 5_000)]),
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ), Pair(payout_asset_pid, [Pair(payout_asset_name, 5_000)]),
+          Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+        ],
+      ),
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let mint_treasury_marker =
+    from_asset(contract_policy_id, contract_treasury_marker_name, 1)
+
+  let tx =
+    Transaction {
+      ..placeholder,
+      inputs: [user_input_0, user_input_1],
+      outputs: [user_output, contract_output],
+      mint: mint_treasury_marker,
+    }
+
+  empowa_swap.empowa_swap.mint(
+    redeemer: Bootstrap,
+    contract_policy_id: contract_policy_id,
+    tx: tx,
+  )
+}
+
+test failed_bootstrap_with_low_ada_amount() fail {
+  // - AmountLock:
+  //   - it's not allowed to create a treasury with less than `contract_treasury_lovelace` lovelaces;
+
+  // If violated, any user could create a not valid treasury.
+
+  let user_input_0 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: user_address,
+        value: from_asset(payout_asset_pid, payout_asset_name, 5_000),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  let user_input_1 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: user_address,
+        value: from_lovelace(5_000_000),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  let user_output =
+    Output {
+      address: user_address,
+      value: from_lovelace(2_000_000),
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let contract_output =
+    Output {
+      address: contract_address,
+      value: from_asset_list(
+        [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace - 1)],
+          ),
+          Pair(
+            payout_asset_pid,
+            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+          ),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -450,6 +550,10 @@ test failed_bootstrap_treasury_marker_overmint() fail {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [Pair(payout_asset_name, contract_treasury_base_quantity)],

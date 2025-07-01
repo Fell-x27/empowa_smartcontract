@@ -10,17 +10,16 @@ use config.{
   contract_treasury_lovelace, contract_treasury_marker_name, n2a_change_rate,
   payout_asset_name, payout_asset_pid, start_change_time,
 }
-use empowa_swap.{Exchange}
+use empowa_swap
 use env.{
   contract_address, contract_policy_id, owner_address, utxo_contract_ref,
   utxo_def_ref,
 }
+use types.{Exchange}
 
 fn get_user_addr(pfx) {
   Address(VerificationKey(concat(pfx, "Some user")), None)
 }
-
-// TODO: Update tests with the new requirement for the base ADA amount in the contract's outputs
 
 test succeed_exchange_treasury_part_consume() {
   // The user provides their own UTXOs as inputs, some of which contain assets with names starting with `burn_nft_pid.burn_nft_name*`.
@@ -134,6 +133,10 @@ test succeed_exchange_treasury_part_consume() {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [
@@ -304,6 +307,10 @@ test succeed_exchange_with_payment_assets_in_inputs_come_to_3rd_address() {
       value: from_asset_list(
         [
           Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
+          Pair(
             payout_asset_pid,
             [
               Pair(
@@ -463,6 +470,10 @@ test succeed_exchange_with_payment_assets_in_inputs_come_to_payout_involved_addr
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [
@@ -966,6 +977,10 @@ test succeed_exchange_extra_user_outputs() {
       value: from_asset_list(
         [
           Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
+          Pair(
             payout_asset_pid,
             [
               Pair(
@@ -1136,6 +1151,10 @@ test succeed_exchange_single_address_wallet() {
       value: from_asset_list(
         [
           Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
+          Pair(
             payout_asset_pid,
             [
               Pair(
@@ -1296,6 +1315,10 @@ test failed_exchange_with_splitted_payment_assets_in_inputs_come_to_payout_invol
       value: from_asset_list(
         [
           Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
+          Pair(
             payout_asset_pid,
             [
               Pair(
@@ -1361,6 +1384,10 @@ test failed_exchange_no_payouts() fail {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [Pair(payout_asset_name, contract_treasury_base_quantity)],
@@ -1430,6 +1457,10 @@ test failed_exchange_no_user_inputs() fail {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [
@@ -1514,6 +1545,10 @@ test failed_exchange_no_nft() fail {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [
@@ -1660,6 +1695,10 @@ test failed_exchange_before_start_time() fail {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [
@@ -2000,6 +2039,10 @@ test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
           Pair(
             ada_policy_id,
             [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
           ), Pair(payout_asset_pid, [Pair(payout_asset_name, 100)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
@@ -2013,6 +2056,10 @@ test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             ada_policy_id,
             [Pair(ada_asset_name, contract_treasury_lovelace)],
@@ -2375,6 +2422,10 @@ test failed_exchange_with_wrong_nft() fail {
       value: from_asset_list(
         [
           Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
+          Pair(
             payout_asset_pid,
             [
               Pair(
@@ -2539,6 +2590,10 @@ test failed_exchange_illegal_minting_attempt() fail {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [
@@ -3004,6 +3059,10 @@ test failed_exchange_fake_payout() fail {
       address: contract_address,
       value: from_asset_list(
         [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace)],
+          ),
           Pair(
             payout_asset_pid,
             [Pair(payout_asset_name, contract_treasury_base_quantity)],

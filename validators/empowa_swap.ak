@@ -1,189 +1,33 @@
-////////////////////
-////////////////////
-
-use aiken/collection/dict.{filter as d_filter, to_pairs, values}
+use aiken/collection/dict.{filter as d_filter, values}
 use aiken/collection/list.{
   all, any, difference, filter as l_filter, has, length, map as l_map,
-  map2 as l_map2, reduce as l_reduce, sort,
+  reduce as l_reduce, sort,
 }
-use aiken/collection/pairs.{insert_with_by_ascending_key, keys}
+use aiken/collection/pairs.{keys}
 use aiken/interval.{is_entirely_after}
-use aiken/primitive/bytearray.{compare, starts_with}
+use aiken/primitive/bytearray.{starts_with}
 use aiken/primitive/int
-use cardano/address.{Address, PaymentCredential, Script, VerificationKey}
-use cardano/assets.{
-  AssetName, PolicyId, Value, flatten, is_zero, lovelace_of, quantity_of,
-  reduce as v_reduce, tokens,
-}
-use cardano/transaction.{
-  Input, Output, OutputReference, Transaction, find_input, find_script_outputs,
-}
+use cardano/address.{Address, Script, VerificationKey}
+use cardano/assets.{PolicyId, flatten, lovelace_of, quantity_of, tokens}
+use cardano/transaction.{Input,
+  Output, OutputReference, Transaction, find_input}
 use config.{
   burn_nft_name, burn_nft_pid, contract_treasury_base_quantity,
   contract_treasury_lovelace, contract_treasury_marker_name, n2a_change_rate,
   owner_key_hash, payout_asset_name, payout_asset_pid, start_change_time,
   unlock_unclaimed_assets_time,
 }
-
-pub type Action {
-  Bootstrap
-  Exchange
-  Recall
+use helpers.{
+  aggregate_payouts, check_if_single_asset_burned, find_outputs_by_payment_cred,
+  real_all, validate_optimality, verify_payouts,
 }
-
-fn check_if_single_asset_burned(
-  tx_mint: Value,
-  policy_id: PolicyId,
-  asset_name: AssetName,
-) -> Bool {
-  expect [Pair(burned_asset_name, asset_quantity)] =
-    tx_mint
-      |> tokens(policy_id)
-      |> to_pairs()
-
-  and {
-    (asset_name == burned_asset_name)?,
-    (asset_quantity < 0)?,
-  }
-}
-
-fn address2pcred_as_bytes(Address { payment_credential, .. }) -> ByteArray {
-  when payment_credential is {
-    VerificationKey(bytes) -> bytes
-    Script(bytes) -> bytes
-  }
-}
-
-fn to_outputs(inputs: List<Input>) -> List<Output> {
-  inputs
-    |> l_map(fn(Input { output, .. }) { output })
-}
-
-fn find_outputs_by_payment_cred(
-  outputs: List<Output>,
-  search_payment_cred: PaymentCredential,
-  invert: Bool,
-) -> List<Output> {
-  outputs
-    |> l_filter(
-        fn(
-          Output {
-            address: Address { payment_credential: out_payment_credential, .. },
-            ..
-          },
-        ) {
-          if invert {
-            search_payment_cred != out_payment_credential
-          } else {
-            search_payment_cred == out_payment_credential
-          }
-        },
-      )
-}
-
-fn validate_optimality(
-  assets_quantity_list: List<Int>,
-  optimal_amount: Int,
-  start_sum: Int,
-  treasury_consumed: Int,
-) -> (Bool, Int) {
-  // We need to check the optimality of the outputs.
-  // Iterate through them, accumulating their value.
-  // At each iteration, check whether the accumulated sum satisfies the condition and whether there are remaining elements:
-  // - either the sum is satisfied and no elements are left,
-  // - or elements remain and the sum is not yet satisfied.
-  when assets_quantity_list is {
-    [] -> fail
-    [x, ..xs] -> {
-      let length_xs = length(xs)
-      let start_sum = start_sum + x
-      if start_sum > optimal_amount && length_xs == 0 {
-        (True, treasury_consumed)
-      } else if start_sum == optimal_amount && length_xs == 0 {
-        (True, treasury_consumed + 1)
-      } else if start_sum < optimal_amount && length_xs != 0 {
-        validate_optimality(
-          xs,
-          optimal_amount,
-          start_sum,
-          treasury_consumed + 1,
-        )
-      } else {
-        (False, -1)
-      }
-    }
-  }
-}
-
-fn aggregate_payouts(
-  payouts: List<Pair<Address, Int>>,
-) -> List<Pair<Address, Int>> {
-  payouts
-    |> l_reduce(
-        [],
-        fn(result, Pair(address, amount)) {
-          result
-            |> insert_with_by_ascending_key(
-                key: address,
-                value: amount,
-                compare: fn(addr1, addr2) {
-                  compare(
-                    address2pcred_as_bytes(addr1),
-                    address2pcred_as_bytes(addr2),
-                  )
-                },
-                with: fn(x, y) { x + y },
-              )
-        },
-      )
-}
-
-fn verify_payouts(
-  real_po: List<Pair<Address, Int>>,
-  expected_po: List<Pair<Address, Int>>,
-  possible_delta: Int,
-  fix_applied: Bool,
-) -> Bool {
-  when [real_po, expected_po] is {
-    [[], []] -> True
-    [
-      [Pair(real_po_addr, real_po_amount), ..rest_real_po],
-      [Pair(expected_po_addr, expected_po_amount), ..rest_expected_po],
-    ] -> {
-      // Addresses must match
-      expect real_po_addr == expected_po_addr
-
-      // Then calculate the delta between real and expected payouts
-      let delta = real_po_amount - expected_po_amount
-
-      // It is ok when delta is 0, and acceptable if it equals `possible_delta` once
-      if delta == 0 || delta == possible_delta && !fix_applied {
-        // Valid real/expected payout delta, next step
-        verify_payouts(
-          rest_real_po,
-          rest_expected_po,
-          possible_delta,
-          fix_applied || delta == possible_delta,
-        )
-      } else {
-        // Unexpected delta, stop execution
-        False
-      }
-    }
-    _ -> fail @"Expected and real payouts must have the same length"
-  }
-}
-
-fn real_all(list: List<a>, predicate: fn(a) -> Bool) -> Bool {
-  when list is {
-    [] -> False
-    _ -> all(list, predicate)
-  }
-}
+use types.{Action, Bootstrap, Exchange, Recall}
 
 validator empowa_swap {
   spend(_d, redeemer: Action, contract_utxo: OutputReference, tx: Transaction) {
     // Contract treasury using validation
+    //
+    // Extract some inportant fields from the transaction's body
     let Transaction {
       inputs: tx_inputs,
       outputs: tx_outputs,
@@ -209,28 +53,33 @@ validator empowa_swap {
       ..
     }) = find_input(tx_inputs, contract_utxo)
 
+    // Extract contract's policy ID from its payment credential (the policy ID is the hash of the contract's script, which is used as the payment credential)
+    expect Script(contract_policy_id) = contract_payment_cred
+
+    // Extract UTxOs from Inputs
     let input_outputs =
       tx_inputs
-        |> to_outputs()
+        |> l_map(fn(Input { output, .. }) { output })
 
+    // Extract contract's inputs UTxOs
     let contract_inputs_outputs =
       input_outputs
         |> find_outputs_by_payment_cred(contract_payment_cred, invert: False)
 
+    // Extract user's inputs UTxOs
     let user_inputs_outputs =
       input_outputs
         |> find_outputs_by_payment_cred(contract_payment_cred, invert: True)
 
+    // Extract contract's outputs
     let contract_outputs =
       tx_outputs
         |> find_outputs_by_payment_cred(contract_payment_cred, invert: False)
 
+    // Extract user's outputs
     let user_outputs =
       tx_outputs
         |> find_outputs_by_payment_cred(contract_payment_cred, invert: True)
-
-    // Extract contract's policy ID from its payment credential (the policy ID is the hash of the contract's script, which is used as the payment credential)
-    expect Script(contract_policy_id) = contract_payment_cred
 
     // Determine the contract's phase
     when redeemer is {
@@ -256,10 +105,10 @@ validator empowa_swap {
         //   - [REQUIRED (>=1)] User outputs containing `PO_asset` in an amount equal to the number of burned `Receipt_NFT` × `Exchange_rate`,
         //                      with one output per each address that held a burned `Receipt_NFT`
         //
-        //   - [REQUIRED (0 ≤ n ≤ 1)] Smart contract output containing the remaining `Treasury_UTxO`
+        //   - [REQUIRED (0 <= n <= 1)] Smart contract output containing the remaining `Treasury_UTxO`
         //                            only if `PO_asset` remains; otherwise, the `Treasury_UTxO` must be destroyed
         //
-        //   - [OPTIONAL (1)] Smart contract owner’s output containing any `Base_ada` left after the destruction of a `Treasury_UTxO`, if applicable
+        //   - [OPTIONAL (exactly 1)] Smart contract owner’s output containing any `Base_ada` left after the destruction of a `Treasury_UTxO`, if applicable
         //
         // - Minting:
         //   - [REQUIRED (>=1)] `Receipt_NFT` with a negative quantity (burned)
@@ -284,6 +133,7 @@ validator empowa_swap {
         //   - If one or more `Treasury_UTxO` were emptied, the `Treasury_marker` must be burned
         //   - If one or more `Treasury_UTxO` were emptied, ensure that their `Base_ada` is returned to the contract owner's address
         //   - Ensure that there is at most one contract output with `Treasury_marker` (exactly one item if any).
+        //   - Ensure that only the exact number of PO_asset required for payouts was moved from the treasury.
 
         //
         // Flatten the mint value to a list of (policy_id, asset_name, amount) tuples for further validation
@@ -525,6 +375,7 @@ validator empowa_swap {
             lovelace_of(owner_output.value) == consumed_treasury_count * contract_treasury_lovelace
           }
 
+        // Make a decision about the validity of input usage
         and {
           is_exchange_already_allowed?,
           are_contract_inputs_optimal?,
@@ -539,13 +390,37 @@ validator empowa_swap {
       }
       Recall -> {
         // Treasury destruction (recalling `PO_asset`, unlocking base ADA, trashing empty treasury):
-        // - Redeemer: Recall.
-        // - Minting:
-        //   - burning is allowed only after `unlock_unclaimed_assets_time`;
+        // - Definitions:
+        //   - Treasury_marker = a service token marking a Treasury_UTxO at the smart contract address
+        //   - `owner_key_hash` – the key hash of the contract owner, defined in the contract’s config file
+        //
+        // -----------------------------
+        //
+        // TX structure
+        // - Inputs:
+        //   - [REQUIRED (>=1)] Any UTxO from the contract’s address
+        //   - [OPTIONAL (>=0)] Any UTxO(s) containing any assets (e.g., to cover transaction fees)
+        //
         // - Outputs:
-        //   - ensure that the only output goes to the address associated with `assets_owner_pcred`;
-        //   - ensure that there are no tx_outputs containing `contract_policy_id.contract_treasury_marker_name`.
+        //   - [REQUIRED (exactly 1)] Output to the contract owner's address, derived from `owner_key_hash` in the config file
+        //
+        // - Minting:
+        //   - [OPTIONAL (>=0)] `Treasury_marker` with a negative quantity (burned), as any such token in the outputs is prohibited
+        //
+        // - Time range:
+        //   - [REQUIRED] A timestamp indicating when recall operations are permitted to begin
 
+        //
+        // -----------------------------
+        //
+        // - Logic:
+        //   - Burning is allowed only after `unlock_unclaimed_assets_time`
+        //   - Ensure that the only output is sent to the address associated with `owner_key_hash`
+        //   - Ensure that no `tx_outputs` contain `contract_policy_id.contract_treasury_marker_name`
+
+        //
+        // Extract the only output's address payment credential to check if it is correct
+        // Extract its value to check that it doesn't contain any `Treasury_marker`
         expect [
           Output {
             address: Address {
@@ -557,6 +432,7 @@ validator empowa_swap {
           },
         ] = tx_outputs
 
+        // Check if the output belongs to the owner and does not contain any `Treasury_marker`
         let is_output_fine = and {
             (out_payment_cred == owner_key_hash)?,
             (quantity_of(
@@ -569,16 +445,22 @@ validator empowa_swap {
         // If there are no markers in a particular output, we don't need to check if they were burned.
         // This is implicitly guaranteed, otherwise the transaction would be unbalanced.
         // It also allows us to recall any unclaimed UTxOs without requiring a marker at all.
+        //
+        // Make a decision about the validity of input usage
         and {
           is_recall_already_allowed?,
           is_output_fine?,
         }
       }
-      Bootstrap -> fail
+      // Bootstrap is not related to spending and cannot be used in this context
+      Bootstrap -> fail @"Wrong redeemer!"
     }
   }
 
   mint(redeemer: Action, contract_policy_id: PolicyId, tx: Transaction) {
+    // Contract treasury minting/burning validation
+    //
+    // Extract some inportant fields from the transaction's body
     let Transaction {
       inputs: tx_inputs,
       outputs: tx_outputs,
@@ -587,19 +469,56 @@ validator empowa_swap {
       ..
     } = tx
 
+    // Check if the transaction's validity range is after start_change_time (i.e., the Exchange phase is open)
     let is_exchange_already_allowed =
       is_entirely_after(tx_validity_range, start_change_time)
 
+    // Check if the transaction's validity range is after unlock_unclaimed_assets_time (i.e., the Recall phase is open)
     let is_recall_already_allowed =
       is_entirely_after(tx_validity_range, unlock_unclaimed_assets_time)
+
+    let contract_payment_cred = Script(contract_policy_id)
+
+    // Extract contract's outputs
+    let contract_outputs =
+      tx_outputs
+        |> find_outputs_by_payment_cred(contract_payment_cred, invert: False)
 
     when redeemer is {
       Bootstrap -> {
         // Treasury formation (sending assets, minting the marker token):
-        // - Redeemer: Bootstrap.
+        // - Definitions:
+        //   - PO_asset = the `payout_asset_pid.payout_asset_name` asset
+        //   - Treasury_marker = a service token marking a Treasury_UTxO at the smart contract address
+        //   - Treasury_UTxO = a UTxO belonging to the smart contract, containing 1 `Treasury_marker` and some amount of `PO_asset`
+        //   - Base_ada = a certain amount of ada required to create a UTxO with an asset; it may be returned in raw form if the asset is burned
+        //
+        // -----------------------------
+        //
+        // TX structure
         // - Inputs:
-        //   - ensure that `contract_policy_id.contract_treasury_marker_name` is not present in any input (it may only be minted);
+        //   - [REQUIRED (>=1)] Any UTxO(s) containing some amount of `PO_asset` and ada
+        //
+        // - Outputs:
+        //   - [REQUIRED (>=1)] Contract address output(s) with `Treasury_UTxO`, 
+        //                      each containing exactly `contract_treasury_lovelace` of `Base_ada` and `contract_treasury_base_quantity` of `PO_asset`
+        //
+        //   - [OPTIONAL (>=0)] User's change
+        //
+        // - Minting:
+        //   - [OPTIONAL (>=1)] `Treasury_marker` with a positive quantity (minted), equal to the number of contract address outputs
+        //
+        //
+        // -----------------------------
+        //
+        // - Logic:
+        //   - Ensure that `Treasury_marker` is not present in any input (it may only be minted);
+        //   - Ensure that exactly one `Treasury_marker` is minted per contract output;
+        //   - Treasury creation with less than `contract_treasury_base_quantity` of `PO_asset` is not allowed;
+        //   - Treasury creation with less than `contract_treasury_lovelace` lovelaces is not allowed;
+        //   - Treasury creation with `contract_treasury_marker`>1 is not allowed.
 
+        // Inspect contract
         let no_markers_in_inputs =
           !any(
             tx_inputs,
@@ -611,45 +530,44 @@ validator empowa_swap {
               ) > 0
             },
           )
-
-        // - Outputs:
-        //   - verify that N `PO_asset` are sent to the contract address along with the `contract_policy_id.contract_treasury_marker_name` asset;
-        // - AmountLock:
-        //   - it's not allowed to create a treasury with less than 10,000 `PO_asset`;
-        //   - it's not allowed to create a treasury with `contract_policy_id.contract_treasury_marker_name` != 1 .
-        let contract_outputs =
-          find_script_outputs(tx_outputs, contract_policy_id)
         let contract_outputs_are_fine =
+          // Check if all contract outputs satisfy the following conditions:
           contract_outputs
             |> all(
                 fn(Output { value: contract_output_value, .. }) {
                   and {
+                    // Contain exactly 1 `Treasury_marker`
                     (quantity_of(
                       contract_output_value,
                       contract_policy_id,
                       contract_treasury_marker_name,
                     ) == 1)?,
+                    // Contain at least `contract_treasury_base_quantity` of `PO_asset`
                     (quantity_of(
                       contract_output_value,
                       payout_asset_pid,
                       payout_asset_name,
                     ) >= contract_treasury_base_quantity)?,
+                    // Contain exactly `contract_treasury_lovelace` of lovelace (Base ADA)
+                    (lovelace_of(contract_output_value) == contract_treasury_lovelace)?,
                   }
                 },
               )
 
-        // - Minting:
-        //   - ensure that exactly 1 `contract_policy_id.contract_treasury_marker_name` per contract_output was minted;
+        // Count the number of contract outputs to verify whether `Treasury_marker`s were minted correctly
         let contract_outputs_quantity = length(contract_outputs)
+        // And the same for minted `Treasury_marker`s
         let minted_markers_quantity =
           quantity_of(
             tx_mint,
             contract_policy_id,
             contract_treasury_marker_name,
           )
+        // And then compare them
         let minted_markers_match_contract_outputs =
           contract_outputs_quantity == minted_markers_quantity
 
+        // Make a decision about the validity of input usage
         and {
           no_markers_in_inputs?,
           contract_outputs_are_fine?,
@@ -658,12 +576,19 @@ validator empowa_swap {
       }
 
       Exchange ->
-        // Exchange (sending `PO_asset`): 
-        // - Ensure that the burned `contract_policy_id.contract_treasury_marker_name` comes from the single UTXO sent to the contract address.        
+        // Exchange (sending `PO_asset` with Treasury destruction):
         //
-        // Actually, there is no way to burn any marker without spending the contract's UTxO, 
-        // so the entire validation logic resides in the spending validator.
-        // Here, we only need to ensure that this is a burning transaction, not minting.
+        // - Definitions:
+        //   - Treasury_marker = a service token marking a Treasury_UTxO at the smart contract address
+        //   - Treasury_UTxO = a UTxO belonging to the smart contract, containing 1 `Treasury_marker` and some amount of `PO_asset`
+        //
+        // Not a standalone action.
+        // This is a helper validator, used only when burning a `Treasury_marker` as part of an exchange.
+        // See the transaction structure in `spend -> Exchange`.
+
+        // Actually, there is no way to burn any marker without spending the contract's UTxO,
+        // so the full validation logic resides in the spending validator.
+        // Here, we only need to ensure that this is a burning transaction, not minting, and that it is allowed by the timelock.
 
         and {
           check_if_single_asset_burned(
@@ -676,9 +601,17 @@ validator empowa_swap {
       Recall ->
         // Treasury destruction (recalling `PO_asset`, unlocking base ADA, trashing empty treasury):
         //
-        // Actually, there is no way to burn any marker without spending the contract's UTxO, 
-        // so the entire validation logic resides in the spending validator.
-        // Here, we only need to ensure that this is a burning transaction, not minting.
+        // - Definitions:
+        //   - Treasury_marker = a service token marking a Treasury_UTxO at the smart contract address
+        //   - Treasury_UTxO = a UTxO belonging to the smart contract, containing 1 `Treasury_marker` and some amount of `PO_asset`
+        //
+        // Not a standalone action.
+        // This is a helper validator, used only when burning a `Treasury_marker` as part of an recalling.
+        // See the transaction structure in `spend -> Recall`.
+
+        // Actually, there is no way to burn any marker without spending the contract's UTxO,
+        // so the full validation logic resides in the spending validator.
+        // Here, we only need to ensure that this is a burning transaction, not minting, and that it is allowed by the timelock.
 
         and {
           check_if_single_asset_burned(
