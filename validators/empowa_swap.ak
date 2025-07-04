@@ -12,10 +12,10 @@ use cardano/assets.{PolicyId, flatten, lovelace_of, quantity_of, tokens}
 use cardano/transaction.{Input,
   Output, OutputReference, Transaction, find_input}
 use config.{
-  burn_nft_name, burn_nft_pid, contract_treasury_base_quantity,
-  contract_treasury_lovelace, contract_treasury_marker_name, n2a_change_rate,
-  owner_key_hash, payout_asset_name, payout_asset_pid, start_change_time,
-  unlock_unclaimed_assets_time,
+  burn_nft_name, burn_nft_pid, contract_treasury_asset_quantity,
+  contract_treasury_lovelace_quantity, contract_treasury_marker_name,
+  n2a_change_rate, owner_key_hash, payout_asset_name, payout_asset_pid,
+  start_change_time, unlock_unclaimed_assets_time,
 }
 use helpers.{
   aggregate_payouts, check_if_single_asset_burned, find_outputs_by_payment_cred,
@@ -37,11 +37,11 @@ validator empowa_swap {
     } = tx
 
     // Check if the transaction's validity range is after start_change_time (i.e., the Exchange phase is open)
-    let is_exchange_already_allowed =
+    let exchange_is_already_allowed =
       is_entirely_after(tx_validity_range, start_change_time)
 
     // Check if the transaction's validity range is after unlock_unclaimed_assets_time (i.e., the Recall phase is open)
-    let is_recall_already_allowed =
+    let recall_is_already_allowed =
       is_entirely_after(tx_validity_range, unlock_unclaimed_assets_time)
 
     // Extract contract's payment credential from its UTxO
@@ -246,7 +246,7 @@ validator empowa_swap {
 
         // Then fetch `real payouts`
         // At the same time, compare them with the expected payouts — if the sequence completes successfully, the real payouts are valid
-        let real_payouts_are_ok =
+        let real_payouts_are_fine =
           user_outputs
             // Scan user outputs values and build the payouts list based on `PO_asset` quantity
             |> l_map(
@@ -314,7 +314,7 @@ validator empowa_swap {
           }
 
         // Inspect the contract's inputs to verify their optimality and return the count of consumed `Treasury_UTxO`s
-        let (are_contract_inputs_optimal, consumed_treasury_count) =
+        let (contract_inputs_are_optimal, consumed_treasury_count) =
           contract_inputs_outputs
             // Convert each contract input to the amount of `PO_asset` it contains
             |> l_map(
@@ -338,14 +338,14 @@ validator empowa_swap {
             |> get_payout_assets_sum()
 
         // Check if there is 1 contract output at most
-        let is_there_no_more_than_one_contract_out =
+        let there_is_no_more_than_one_contract_out =
           length(contract_outputs) <= 1
 
         // Check if the `Base_ada` of `Treasury_UTxO`s remains untouched
         let contract_output_ada_is_fine =
           if length(contract_outputs) == 1 {
             expect [Output { value, .. }] = contract_outputs
-            lovelace_of(value) == contract_treasury_lovelace
+            lovelace_of(value) == contract_treasury_lovelace_quantity
           } else {
             True
           }
@@ -356,11 +356,11 @@ validator empowa_swap {
           (contract_input_payout_assets_amount - contract_output_payout_assets_amount == expected_payouts_sum)?
 
         // Check whether the `Treasury_markers` were properly burned
-        let are_treasuries_removed_properly =
+        let treasuries_are_removed_properly =
           consumed_treasury_count == length(burned_markers)
 
         // If any `Treasury_UTxO` was consumed and its `Treasury_marker` burned, ensure that any remaining base ADA was sent to the contract owner
-        let treasury_ada_sent_back_properly =
+        let treasury_ada_are_sent_back_properly =
           if consumed_treasury_count == 0 {
             True
           } else {
@@ -372,19 +372,19 @@ validator empowa_swap {
                     invert: False,
                   )
             // Ensure that the owner received the full amount of released base ADA
-            lovelace_of(owner_output.value) == consumed_treasury_count * contract_treasury_lovelace
+            lovelace_of(owner_output.value) == consumed_treasury_count * contract_treasury_lovelace_quantity
           }
 
         // Make a decision about the validity of input usage
         and {
-          is_exchange_already_allowed?,
-          are_contract_inputs_optimal?,
+          exchange_is_already_allowed?,
+          contract_inputs_are_optimal?,
           mint_is_valid?,
-          real_payouts_are_ok?,
-          is_there_no_more_than_one_contract_out?,
+          real_payouts_are_fine?,
+          there_is_no_more_than_one_contract_out?,
           contract_payout_is_fine?,
-          are_treasuries_removed_properly?,
-          treasury_ada_sent_back_properly?,
+          treasuries_are_removed_properly?,
+          treasury_ada_are_sent_back_properly?,
           contract_output_ada_is_fine?,
         }
       }
@@ -448,7 +448,7 @@ validator empowa_swap {
         //
         // Make a decision about the validity of input usage
         and {
-          is_recall_already_allowed?,
+          recall_is_already_allowed?,
           is_output_fine?,
         }
       }
@@ -470,11 +470,11 @@ validator empowa_swap {
     } = tx
 
     // Check if the transaction's validity range is after start_change_time (i.e., the Exchange phase is open)
-    let is_exchange_already_allowed =
+    let exchange_is_already_allowed =
       is_entirely_after(tx_validity_range, start_change_time)
 
     // Check if the transaction's validity range is after unlock_unclaimed_assets_time (i.e., the Recall phase is open)
-    let is_recall_already_allowed =
+    let recall_is_already_allowed =
       is_entirely_after(tx_validity_range, unlock_unclaimed_assets_time)
 
     let contract_payment_cred = Script(contract_policy_id)
@@ -501,7 +501,7 @@ validator empowa_swap {
         //
         // - Outputs:
         //   - [REQUIRED (>=1)] Contract address output(s) with `Treasury_UTxO`, 
-        //                      each containing exactly `contract_treasury_lovelace` of `Base_ada` and `contract_treasury_base_quantity` of `PO_asset`
+        //                      each containing exactly `contract_treasury_lovelace_quantity` of `Base_ada` and `contract_treasury_asset_quantity` of `PO_asset`
         //
         //   - [OPTIONAL (>=0)] User's change
         //
@@ -514,8 +514,8 @@ validator empowa_swap {
         // - Logic:
         //   - Ensure that `Treasury_marker` is not present in any input (it may only be minted);
         //   - Ensure that exactly one `Treasury_marker` is minted per contract output;
-        //   - Treasury creation with less than `contract_treasury_base_quantity` of `PO_asset` is not allowed;
-        //   - Treasury creation with less than `contract_treasury_lovelace` lovelaces is not allowed;
+        //   - Treasury creation with less than `contract_treasury_asset_quantity` of `PO_asset` is not allowed;
+        //   - Treasury creation with less than `contract_treasury_lovelace_quantity` lovelaces is not allowed;
         //   - Treasury creation with `contract_treasury_marker`>1 is not allowed.
 
         // Inspect contract
@@ -542,14 +542,14 @@ validator empowa_swap {
                       contract_policy_id,
                       contract_treasury_marker_name,
                     ) == 1)?,
-                    // Contain at least `contract_treasury_base_quantity` of `PO_asset`
+                    // Contain at least `contract_treasury_asset_quantity` of `PO_asset`
                     (quantity_of(
                       contract_output_value,
                       payout_asset_pid,
                       payout_asset_name,
-                    ) >= contract_treasury_base_quantity)?,
-                    // Contain exactly `contract_treasury_lovelace` of lovelace (Base ADA)
-                    (lovelace_of(contract_output_value) == contract_treasury_lovelace)?,
+                    ) >= contract_treasury_asset_quantity)?,
+                    // Contain exactly `contract_treasury_lovelace_quantity` of lovelace (Base ADA)
+                    (lovelace_of(contract_output_value) == contract_treasury_lovelace_quantity)?,
                   }
                 },
               )
@@ -596,7 +596,7 @@ validator empowa_swap {
             contract_policy_id,
             contract_treasury_marker_name,
           )?,
-          is_exchange_already_allowed?,
+          exchange_is_already_allowed?,
         }
       Recall ->
         // Treasury destruction (recalling `PO_asset`, unlocking base ADA, trashing empty treasury):
@@ -619,7 +619,7 @@ validator empowa_swap {
             contract_policy_id,
             contract_treasury_marker_name,
           )?,
-          is_recall_already_allowed?,
+          recall_is_already_allowed?,
         }
     }
   }

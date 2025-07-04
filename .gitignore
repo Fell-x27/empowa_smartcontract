@@ -4,7 +4,6 @@ artifacts/
 build/
 # Aiken's default documentation export
 docs/
-research/
-tx_files/
 plutus.json
+notes.txt
 

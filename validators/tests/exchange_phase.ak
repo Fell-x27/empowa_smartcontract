@@ -6,9 +6,9 @@ use cardano/assets.{
 }
 use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
 use config.{
-  burn_nft_name, burn_nft_pid, contract_treasury_base_quantity,
-  contract_treasury_lovelace, contract_treasury_marker_name, n2a_change_rate,
-  payout_asset_name, payout_asset_pid, start_change_time,
+  burn_nft_name, burn_nft_pid, contract_treasury_asset_quantity,
+  contract_treasury_lovelace_quantity, contract_treasury_marker_name,
+  n2a_change_rate, payout_asset_name, payout_asset_pid, start_change_time,
 }
 use empowa_swap
 use env.{
@@ -22,6 +22,8 @@ fn get_user_addr(pfx) {
 }
 
 test succeed_exchange_treasury_part_consume() {
+  trace payout_asset_pid
+
   // The user provides their own UTXOs as inputs, some of which contain assets with names starting with `burn_nft_pid.burn_nft_name*`.
   let user_input_0 =
     Input(
@@ -79,7 +81,7 @@ test succeed_exchange_treasury_part_consume() {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -135,14 +137,14 @@ test succeed_exchange_treasury_part_consume() {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate * 3,
+                contract_treasury_asset_quantity - n2a_change_rate * 3,
               ),
             ],
           ),
@@ -239,7 +241,7 @@ test succeed_exchange_with_payment_assets_in_inputs_come_to_3rd_address() {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -308,14 +310,14 @@ test succeed_exchange_with_payment_assets_in_inputs_come_to_3rd_address() {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate * 3,
+                contract_treasury_asset_quantity - n2a_change_rate * 3,
               ),
             ],
           ),
@@ -412,7 +414,7 @@ test succeed_exchange_with_payment_assets_in_inputs_come_to_payout_involved_addr
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -472,14 +474,14 @@ test succeed_exchange_with_payment_assets_in_inputs_come_to_payout_involved_addr
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate * 3,
+                contract_treasury_asset_quantity - n2a_change_rate * 3,
               ),
             ],
           ),
@@ -569,7 +571,7 @@ test succeed_exchange_treasury_full_consume() {
           [
             Pair(
               ada_policy_id,
-              [Pair(ada_asset_name, contract_treasury_lovelace)],
+              [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
             ), Pair(payout_asset_pid, [Pair(payout_asset_name, 3_300)]),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -622,7 +624,7 @@ test succeed_exchange_treasury_full_consume() {
   let owner_output =
     Output {
       address: owner_address,
-      value: from_lovelace(contract_treasury_lovelace),
+      value: from_lovelace(contract_treasury_lovelace_quantity),
       datum: NoDatum,
       reference_script: None,
     }
@@ -720,7 +722,7 @@ test succeed_exchange_treasury_hybrid_consume() {
           [
             Pair(
               ada_policy_id,
-              [Pair(ada_asset_name, contract_treasury_lovelace)],
+              [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
             ), Pair(payout_asset_pid, [Pair(payout_asset_name, 1_000)]),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -739,7 +741,7 @@ test succeed_exchange_treasury_hybrid_consume() {
           [
             Pair(
               ada_policy_id,
-              [Pair(ada_asset_name, contract_treasury_lovelace)],
+              [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
             ), Pair(payout_asset_pid, [Pair(payout_asset_name, 2_500)]),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -792,7 +794,7 @@ test succeed_exchange_treasury_hybrid_consume() {
   let owner_output =
     Output {
       address: owner_address,
-      value: from_lovelace(contract_treasury_lovelace),
+      value: from_lovelace(contract_treasury_lovelace_quantity),
       datum: NoDatum,
       reference_script: None,
     }
@@ -804,7 +806,7 @@ test succeed_exchange_treasury_hybrid_consume() {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ), Pair(payout_asset_pid, [Pair(payout_asset_name, 200)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
@@ -898,7 +900,7 @@ test succeed_exchange_extra_user_outputs() {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -978,14 +980,14 @@ test succeed_exchange_extra_user_outputs() {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate * 3,
+                contract_treasury_asset_quantity - n2a_change_rate * 3,
               ),
             ],
           ),
@@ -1078,7 +1080,7 @@ test succeed_exchange_single_address_wallet() {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -1152,14 +1154,14 @@ test succeed_exchange_single_address_wallet() {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate * 3,
+                contract_treasury_asset_quantity - n2a_change_rate * 3,
               ),
             ],
           ),
@@ -1256,7 +1258,7 @@ test failed_exchange_with_splitted_payment_assets_in_inputs_come_to_payout_invol
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -1316,14 +1318,14 @@ test failed_exchange_with_splitted_payment_assets_in_inputs_come_to_payout_invol
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate * 3,
+                contract_treasury_asset_quantity - n2a_change_rate * 3,
               ),
             ],
           ),
@@ -1368,7 +1370,7 @@ test failed_exchange_no_payouts() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -1386,11 +1388,11 @@ test failed_exchange_no_payouts() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
           ),
           // ^ 3 NFTs were burned; the treasury balance was reduced accordingly.
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
@@ -1431,7 +1433,7 @@ test failed_exchange_no_user_inputs() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -1459,14 +1461,14 @@ test failed_exchange_no_user_inputs() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate,
+                contract_treasury_asset_quantity - n2a_change_rate,
               ),
             ],
           ),
@@ -1519,7 +1521,7 @@ test failed_exchange_no_nft() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -1547,14 +1549,14 @@ test failed_exchange_no_nft() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate,
+                contract_treasury_asset_quantity - n2a_change_rate,
               ),
             ],
           ),
@@ -1641,7 +1643,7 @@ test failed_exchange_before_start_time() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -1697,14 +1699,14 @@ test failed_exchange_before_start_time() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate * 3,
+                contract_treasury_asset_quantity - n2a_change_rate * 3,
               ),
             ],
           ),
@@ -1793,7 +1795,7 @@ test failed_exchange_treasury_full_consume_marker_not_burned() fail {
           [
             Pair(
               ada_policy_id,
-              [Pair(ada_asset_name, contract_treasury_lovelace)],
+              [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
             ), Pair(payout_asset_pid, [Pair(payout_asset_name, 3_300)]),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -1854,7 +1856,7 @@ test failed_exchange_treasury_full_consume_marker_not_burned() fail {
   let owner_output =
     Output {
       address: owner_address,
-      value: from_lovelace(contract_treasury_lovelace),
+      value: from_lovelace(contract_treasury_lovelace_quantity),
       datum: NoDatum,
       reference_script: None,
     }
@@ -1955,7 +1957,7 @@ test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
           [
             Pair(
               ada_policy_id,
-              [Pair(ada_asset_name, contract_treasury_lovelace)],
+              [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
             ), Pair(payout_asset_pid, [Pair(payout_asset_name, 1_000)]),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -1974,7 +1976,7 @@ test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
           [
             Pair(
               ada_policy_id,
-              [Pair(ada_asset_name, contract_treasury_lovelace)],
+              [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
             ), Pair(payout_asset_pid, [Pair(payout_asset_name, 2_500)]),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -2026,7 +2028,7 @@ test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
   let owner_output =
     Output {
       address: owner_address,
-      value: from_lovelace(contract_treasury_lovelace),
+      value: from_lovelace(contract_treasury_lovelace_quantity),
       datum: NoDatum,
       reference_script: None,
     }
@@ -2038,11 +2040,11 @@ test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ), Pair(payout_asset_pid, [Pair(payout_asset_name, 100)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
@@ -2058,11 +2060,11 @@ test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ), Pair(payout_asset_pid, [Pair(payout_asset_name, 100)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
@@ -2167,7 +2169,7 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
           [
             Pair(
               ada_policy_id,
-              [Pair(ada_asset_name, contract_treasury_lovelace)],
+              [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
             ), Pair(payout_asset_pid, [Pair(payout_asset_name, 1_000)]),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -2186,7 +2188,7 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
           [
             Pair(
               ada_policy_id,
-              [Pair(ada_asset_name, contract_treasury_lovelace)],
+              [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
             ), Pair(payout_asset_pid, [Pair(payout_asset_name, 2_500)]),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -2205,7 +2207,7 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
           [
             Pair(
               ada_policy_id,
-              [Pair(ada_asset_name, contract_treasury_lovelace)],
+              [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
             ), Pair(payout_asset_pid, [Pair(payout_asset_name, 3_000)]),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -2258,7 +2260,7 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
   let owner_output =
     Output {
       address: owner_address,
-      value: from_lovelace(contract_treasury_lovelace),
+      value: from_lovelace(contract_treasury_lovelace_quantity),
       datum: NoDatum,
       reference_script: None,
     }
@@ -2270,7 +2272,7 @@ test failed_exchange_treasury_hybrid_consume_redundant_treasury_input() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ), Pair(payout_asset_pid, [Pair(payout_asset_name, 3_200)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
@@ -2367,7 +2369,7 @@ test failed_exchange_with_wrong_nft() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -2423,14 +2425,14 @@ test failed_exchange_with_wrong_nft() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate * 3,
+                contract_treasury_asset_quantity - n2a_change_rate * 3,
               ),
             ],
           ),
@@ -2520,7 +2522,7 @@ test failed_exchange_illegal_minting_attempt() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -2592,14 +2594,14 @@ test failed_exchange_illegal_minting_attempt() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate * 3,
+                contract_treasury_asset_quantity - n2a_change_rate * 3,
               ),
             ],
           ),
@@ -2689,7 +2691,7 @@ test failed_exchange_treasury_part_consume_ada_stealing() fail {
             Pair(ada_policy_id, [Pair(ada_asset_name, 5_000_000)]),
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -2759,7 +2761,7 @@ test failed_exchange_treasury_part_consume_ada_stealing() fail {
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate * 3,
+                contract_treasury_asset_quantity - n2a_change_rate * 3,
               ),
             ],
           ),
@@ -3005,7 +3007,7 @@ test failed_exchange_fake_payout() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -3061,11 +3063,11 @@ test failed_exchange_fake_payout() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
           ),
           // ^ 3 NFTs were burned; But the treasury balance was not reduced accordingly. User got their own asset back.
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),

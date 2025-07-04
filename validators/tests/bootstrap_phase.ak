@@ -3,7 +3,7 @@ use cardano/assets.{
 }
 use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
 use config.{
-  contract_treasury_base_quantity, contract_treasury_lovelace,
+  contract_treasury_asset_quantity, contract_treasury_lovelace_quantity,
   contract_treasury_marker_name, payout_asset_name, payout_asset_pid,
 }
 use empowa_swap
@@ -31,7 +31,7 @@ test succeed_bootstrap() {
         value: from_asset(
           payout_asset_pid,
           payout_asset_name,
-          contract_treasury_base_quantity,
+          contract_treasury_asset_quantity,
         ),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
@@ -44,7 +44,7 @@ test succeed_bootstrap() {
       utxo_def_ref,
       Output {
         address: user_address,
-        value: from_lovelace(contract_treasury_lovelace),
+        value: from_lovelace(contract_treasury_lovelace_quantity),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
         reference_script: None,
@@ -66,11 +66,11 @@ test succeed_bootstrap() {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
           ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -111,7 +111,7 @@ test failed_bootstrap_wrong_inputs() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -147,11 +147,11 @@ test failed_bootstrap_wrong_inputs() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
           ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -166,11 +166,11 @@ test failed_bootstrap_wrong_inputs() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
           ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -215,7 +215,7 @@ test failed_bootstrap_random_asset_instead_marker_minted() fail {
         value: from_asset(
           payout_asset_pid,
           payout_asset_name,
-          contract_treasury_base_quantity,
+          contract_treasury_asset_quantity,
         ),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,
@@ -250,11 +250,11 @@ test failed_bootstrap_random_asset_instead_marker_minted() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
           ), Pair(contract_policy_id, [Pair("wrong asset name", 1)]),
         ],
       ),
@@ -295,7 +295,7 @@ test failed_bootstrap_treasury_marker_stealing() fail {
         value: from_asset(
           payout_asset_pid,
           payout_asset_name,
-          contract_treasury_base_quantity,
+          contract_treasury_asset_quantity,
         ),
         datum: NoDatum,
         reference_script: None,
@@ -329,11 +329,11 @@ test failed_bootstrap_treasury_marker_stealing() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
           ),
         ],
       ),
@@ -402,7 +402,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ), Pair(payout_asset_pid, [Pair(payout_asset_name, 5_000)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
@@ -431,7 +431,7 @@ test failed_bootstrap_with_low_treasury_amount() fail {
 
 test failed_bootstrap_with_low_ada_amount() fail {
   // - AmountLock:
-  //   - it's not allowed to create a treasury with less than `contract_treasury_lovelace` lovelaces;
+  //   - it's not allowed to create a treasury with less than `contract_treasury_lovelace_quantity` lovelaces;
 
   // If violated, any user could create a not valid treasury.
 
@@ -472,11 +472,11 @@ test failed_bootstrap_with_low_ada_amount() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace - 1)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity - 1)],
           ),
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
           ),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
@@ -518,7 +518,7 @@ test failed_bootstrap_treasury_marker_overmint() fail {
         value: from_asset(
           payout_asset_pid,
           payout_asset_name,
-          contract_treasury_base_quantity,
+          contract_treasury_asset_quantity,
         ),
         datum: NoDatum,
         reference_script: None,
@@ -552,11 +552,11 @@ test failed_bootstrap_treasury_marker_overmint() fail {
         [
           Pair(
             ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace)],
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ),
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
           ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -593,7 +593,7 @@ test failed_bootstrap_wrong_contract_outputs() fail {
         value: from_asset(
           payout_asset_pid,
           payout_asset_name,
-          contract_treasury_base_quantity,
+          contract_treasury_asset_quantity,
         ),
         //^Actually, we don't check this value, but it is present for clarity.
         datum: NoDatum,

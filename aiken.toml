@@ -17,28 +17,24 @@ source = "github"
 
 [config.default]
 contract_treasury_marker_name = "TRS"
-contract_treasury_lovelace = 5_000_000
-contract_exchange_start_after = 1_234_567
-contract_treasury_base_quantity = 11_000
-payout_asset_pid = "EMP_pid"
+contract_treasury_lovelace_quantity = 5_000_000
+contract_treasury_asset_quantity = 11_000
 payout_asset_name = "EMP"
-burn_nft_pid = "EMP_nft_pid"
-burn_nft_name = "EMP_nft"
+burn_nft_name = "Empowa Collateral v1.2 - test"
 n2a_change_rate = 1100
 start_change_time = 1000
 unlock_unclaimed_assets_time = 2000
-owner_key_hash = "owner_key_hash"
 
-[config.test]
-contract_treasury_marker_name = "TRS"
-contract_treasury_lovelace = 5_000_000
-contract_exchange_start_after = 1_234_567
-contract_treasury_base_quantity = 11_000
-payout_asset_pid = "EMP_pid"
-payout_asset_name = "EMP"
-burn_nft_pid = "EMP_nft_pid"
-burn_nft_name = "EMP_nft"
-n2a_change_rate = 1100
-start_change_time = 1000
-unlock_unclaimed_assets_time = 2000
-owner_key_hash = "owner_key_hash"
+[config.default.burn_nft_pid]
+bytes = "94a8c6dd914997d05bc03ec3d550d84ca8b4b9ed965da0f67e31663c"
+encoding = "hex"
+
+[config.default.payout_asset_pid]
+bytes = "3c72f5fd7ef47230f81dd3488f700b0d9cc63c7d8405b385883ecb20"
+encoding = "hex"
+
+[config.default.owner_key_hash]
+bytes = "36c4267508c244c00109a79fe201577abb0249958e440b48ed1260e4"
+encoding = "hex"
+
+

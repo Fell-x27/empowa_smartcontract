@@ -3,7 +3,7 @@ use aiken/primitive/bytearray.{concat}
 use cardano/assets.{from_asset, from_asset_list}
 use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
 use config.{
-  burn_nft_name, burn_nft_pid, contract_treasury_base_quantity,
+  burn_nft_name, burn_nft_pid, contract_treasury_asset_quantity,
   contract_treasury_marker_name, n2a_change_rate, payout_asset_name,
   payout_asset_pid, start_change_time, unlock_unclaimed_assets_time,
 }
@@ -30,7 +30,7 @@ test mixed_phase_attack_change_n_bootstrap() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -46,7 +46,7 @@ test mixed_phase_attack_change_n_bootstrap() fail {
         [
           Pair(
             payout_asset_pid,
-            [Pair(payout_asset_name, contract_treasury_base_quantity)],
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
           ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
       ),
@@ -107,7 +107,7 @@ test mixed_phase_attack_change_n_recall() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -145,7 +145,7 @@ test mixed_phase_attack_change_n_recall() fail {
             [
               Pair(
                 payout_asset_name,
-                contract_treasury_base_quantity - n2a_change_rate,
+                contract_treasury_asset_quantity - n2a_change_rate,
               ),
             ],
           ),

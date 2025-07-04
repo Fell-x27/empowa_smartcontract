@@ -2,7 +2,7 @@ use aiken/interval.{before, entirely_after}
 use cardano/assets.{from_asset, from_asset_list, from_lovelace}
 use cardano/transaction.{Input, NoDatum, Output, Transaction, placeholder}
 use config.{
-  contract_treasury_base_quantity, contract_treasury_lovelace,
+  contract_treasury_asset_quantity, contract_treasury_lovelace_quantity,
   contract_treasury_marker_name, payout_asset_name, payout_asset_pid,
   unlock_unclaimed_assets_time,
 }
@@ -26,7 +26,7 @@ test succeed_recall() {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -41,7 +41,7 @@ test succeed_recall() {
   let owner_output =
     Output {
       address: owner_address,
-      value: from_lovelace(contract_treasury_lovelace),
+      value: from_lovelace(contract_treasury_lovelace_quantity),
       //^the value doesn't matter acrually
       datum: NoDatum,
       reference_script: None,
@@ -128,7 +128,7 @@ test failed_recall_to_many_outputs() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -143,7 +143,7 @@ test failed_recall_to_many_outputs() fail {
   let owner_output =
     Output {
       address: owner_address,
-      value: from_lovelace(contract_treasury_lovelace / 2),
+      value: from_lovelace(contract_treasury_lovelace_quantity / 2),
       //^the value doesn't matter acrually
       datum: NoDatum,
       reference_script: None,
@@ -152,7 +152,7 @@ test failed_recall_to_many_outputs() fail {
   let user_output =
     Output {
       address: user_address,
-      value: from_lovelace(contract_treasury_lovelace / 2),
+      value: from_lovelace(contract_treasury_lovelace_quantity / 2),
       //^the value doesn't matter acrually
       datum: NoDatum,
       reference_script: None,
@@ -198,7 +198,7 @@ test failed_recall_to_user_address() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -213,7 +213,7 @@ test failed_recall_to_user_address() fail {
   let user_output =
     Output {
       address: user_address,
-      value: from_lovelace(contract_treasury_lovelace / 2),
+      value: from_lovelace(contract_treasury_lovelace_quantity / 2),
       //^the value doesn't matter acrually
       datum: NoDatum,
       reference_script: None,
@@ -259,7 +259,7 @@ test failed_recall_before_timelock() fail {
           [
             Pair(
               payout_asset_pid,
-              [Pair(payout_asset_name, contract_treasury_base_quantity)],
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
             ),
             Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
           ],
@@ -274,7 +274,7 @@ test failed_recall_before_timelock() fail {
   let owner_output =
     Output {
       address: owner_address,
-      value: from_lovelace(contract_treasury_lovelace),
+      value: from_lovelace(contract_treasury_lovelace_quantity),
       //^the value doesn't matter acrually
       datum: NoDatum,
       reference_script: None,
