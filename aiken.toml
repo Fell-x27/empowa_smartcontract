@@ -20,10 +20,10 @@ contract_treasury_marker_name = "TRS"
 contract_treasury_lovelace_quantity = 5_000_000
 contract_treasury_asset_quantity = 11_000
 payout_asset_name = "EMP"
-burn_nft_name = "Empowa Collateral v1.2 - test"
+burn_nft_name = "Empowa Collateral v1.2"
 n2a_change_rate = 1100
-start_change_time = 1000
-unlock_unclaimed_assets_time = 2000
+start_change_time = 1751659300246
+unlock_unclaimed_assets_time = 1751659613763
 
 [config.default.burn_nft_pid]
 bytes = "94a8c6dd914997d05bc03ec3d550d84ca8b4b9ed965da0f67e31663c"
@@ -34,7 +34,7 @@ bytes = "3c72f5fd7ef47230f81dd3488f700b0d9cc63c7d8405b385883ecb20"
 encoding = "hex"
 
 [config.default.owner_key_hash]
-bytes = "36c4267508c244c00109a79fe201577abb0249958e440b48ed1260e4"
+bytes = "b03f1794dfca5968fb916eed4f31f627a133ea8ed3054302191a0526"
 encoding = "hex"
 
 

@@ -1,12 +1,15 @@
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null)"
 
+export ARTIFACTS_PATH="$(dirname "$SCRIPT_DIR")/artifacts"
 export TX_FILES="$SCRIPT_DIR"
-export NFT_CORRECT_NAME="Empowa Collateral v1.2 - test"
-export NFT_INCORRECT_NAME="Empowa Collateral v1.1 - test"
-export PO_ASSET_NAME="EMP"
-export EXCH_TIME=0
-export RECALL_TIME=0
+export NFT_CORRECT_NAME=$(echo -n "Empowa Collateral v1.2 - test" | xxd -ps | tr -d '\n')
+export NFT_INCORRECT_NAME=$(echo -n "Empowa Collateral v1.1 - test" | xxd -ps | tr -d '\n')
+export PO_ASSET_NAME=$(echo -n "EMP" | xxd -ps | tr -d '\n')
+export TREASURY_ASSET_NAME=$(echo -n "TRS" | xxd -ps | tr -d '\n')
+export EXCH_TIME=85003316
+export RECALL_TIME=85003616
+export CONTRACT_REF_UTXO="4b53a0d553dc39be1da541731aaf3d3ed3c6b2361905fc2e342e660b0c2f8590#0"
 
 export NFT_VKEY="$TX_FILES/keys/nft_policy.vkey"
 export NFT_SKEY="$TX_FILES/keys/nft_policy.skey"
@@ -30,3 +33,7 @@ export OWNER_KEYHASH=$(cat "$TX_FILES/keys/owner.vkh")
 export BOOTSTRAP_RDM="$TX_FILES/redeemers/bootstrap.json"
 export EXCHANGE_RDM="$TX_FILES/redeemers/exchange.json"
 export RECALL_RDM="$TX_FILES/redeemers/recall.json"
+
+export CONTRACT_SCRIPT="$ARTIFACTS_PATH/testnet/contract.script"
+export CONTRACT_ADDR=$(cat "$ARTIFACTS_PATH/testnet/contract.addr")
+export CONTRACT_PID=$(cat "$ARTIFACTS_PATH/testnet/contract.pid")
