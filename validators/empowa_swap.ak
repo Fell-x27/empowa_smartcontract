@@ -105,7 +105,7 @@ validator empowa_swap {
         //   - [REQUIRED (>=1)] User outputs containing `PO_asset` in an amount equal to the number of burned `Receipt_NFT` × `Exchange_rate`,
         //                      with one output per each address that held a burned `Receipt_NFT`
         //
-        //   - [REQUIRED (0 <= n <= 1)] Smart contract output containing the remaining `Treasury_UTxO`
+        //   - [OPTIONAL (0 <= n <= 1)] Smart contract output containing the remaining `Treasury_UTxO`
         //                            only if `PO_asset` remains; otherwise, the `Treasury_UTxO` must be destroyed
         //
         //   - [OPTIONAL (exactly 1)] Smart contract owner’s output containing any `Base_ada` left after the destruction of a `Treasury_UTxO`, if applicable
