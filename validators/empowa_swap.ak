@@ -45,13 +45,15 @@ validator empowa_swap {
       is_entirely_after(tx_validity_range, unlock_unclaimed_assets_time)
 
     // Extract contract's payment credential from its UTxO
+    let current_utxo = find_input(tx_inputs, contract_utxo)
     expect Some(Input {
       output: Output {
         address: Address { payment_credential: contract_payment_cred, .. },
+        reference_script: None,
         ..
       },
       ..
-    }) = find_input(tx_inputs, contract_utxo)
+    }) = current_utxo
 
     // Extract contract's policy ID from its payment credential (the policy ID is the hash of the contract's script, which is used as the payment credential)
     expect Script(contract_policy_id) = contract_payment_cred

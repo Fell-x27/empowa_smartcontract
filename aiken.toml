@@ -37,4 +37,26 @@ encoding = "hex"
 bytes = "b03f1794dfca5968fb916eed4f31f627a133ea8ed3054302191a0526"
 encoding = "hex"
 
+[config.mainnet]
+contract_treasury_marker_name = "TRS"
+contract_treasury_lovelace_quantity = 5_000_000
+contract_treasury_asset_quantity = 11_000
+payout_asset_name = "EMP"
+burn_nft_name = "Empowa Collateral v1.2"
+n2a_change_rate = 1100
+start_change_time = 1765998000000
+unlock_unclaimed_assets_time = 1797534000000
+
+[config.mainnet.burn_nft_pid]
+bytes = "a8b19200b182a42099087f366cb7a36f5f37ac25e8fd8e04e6b147f7"
+encoding = "hex"
+
+[config.mainnet.payout_asset_pid]
+bytes = "6c8642400e8437f737eb86df0fc8a8437c760f48592b1ba8f5767e81"
+encoding = "hex"
+
+[config.mainnet.owner_key_hash]
+bytes = "b03f1794dfca5968fb916eed4f31f627a133ea8ed3054302191a0526"
+encoding = "hex"
+
 

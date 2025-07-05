@@ -13,7 +13,7 @@ echo ""
 MAINNET_PATH="./artifacts/mainnet/"
 echo "MAINNET BUILD [${MAINNET_PATH}]"
 mkdir -p "$MAINNET_PATH"
-aiken build -t silent
+aiken build -t silent --env mainnet
 aiken blueprint convert > "$MAINNET_PATH/contract.script"
 aiken blueprint address --mainnet > "$MAINNET_PATH/contract.addr"
 aiken blueprint policy  > "$MAINNET_PATH/contract.pid"

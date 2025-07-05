@@ -10,11 +10,11 @@ use config.{
   contract_treasury_lovelace_quantity, contract_treasury_marker_name,
   n2a_change_rate, payout_asset_name, payout_asset_pid, start_change_time,
 }
-use empowa_swap
-use env.{
+use default.{
   contract_address, contract_policy_id, owner_address, utxo_contract_ref,
   utxo_def_ref,
 }
+use empowa_swap
 use types.{Exchange}
 
 fn get_user_addr(pfx) {
@@ -22,8 +22,6 @@ fn get_user_addr(pfx) {
 }
 
 test succeed_exchange_treasury_part_consume() {
-  trace payout_asset_pid
-
   // The user provides their own UTXOs as inputs, some of which contain assets with names starting with `burn_nft_pid.burn_nft_name*`.
   let user_input_0 =
     Input(

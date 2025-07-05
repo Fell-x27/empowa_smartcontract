@@ -6,8 +6,8 @@ use config.{
   contract_treasury_asset_quantity, contract_treasury_lovelace_quantity,
   contract_treasury_marker_name, payout_asset_name, payout_asset_pid,
 }
+use default.{contract_address, contract_policy_id, user_address, utxo_def_ref}
 use empowa_swap
-use env.{contract_address, contract_policy_id, user_address, utxo_def_ref}
 use types.{Bootstrap}
 
 // This section contains a set of tests covering all edge cases related to treasury UTXO creation.
