@@ -9,7 +9,7 @@ export PO_ASSET_NAME=$(echo -n "EMP" | xxd -ps | tr -d '\n')
 export TREASURY_ASSET_NAME=$(echo -n "TRS" | xxd -ps | tr -d '\n')
 export EXCH_TIME=85003316
 export RECALL_TIME=85003616
-export CONTRACT_REF_UTXO="4b53a0d553dc39be1da541731aaf3d3ed3c6b2361905fc2e342e660b0c2f8590#0"
+export CONTRACT_REF_UTXO="5d6a1c8310768e6d9e17bdc096ba72d1329e803c107b515b3b3fb4c82533a2f8#0"
 
 export NFT_VKEY="$TX_FILES/keys/nft_policy.vkey"
 export NFT_SKEY="$TX_FILES/keys/nft_policy.skey"
