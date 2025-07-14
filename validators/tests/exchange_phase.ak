@@ -2039,10 +2039,6 @@ test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
           Pair(
             ada_policy_id,
             [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
-          ),
-          Pair(
-            ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
           ), Pair(payout_asset_pid, [Pair(payout_asset_name, 100)]),
           Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
         ],
@@ -2056,10 +2052,6 @@ test failed_exchange_treasury_hybrid_consume_split_contract_out() fail {
       address: contract_address,
       value: from_asset_list(
         [
-          Pair(
-            ada_policy_id,
-            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
-          ),
           Pair(
             ada_policy_id,
             [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],

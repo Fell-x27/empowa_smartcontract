@@ -5,23 +5,26 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null)"
 
 export ARTIFACTS_PATH="$(dirname "$SCRIPT_DIR")/artifacts"
 export TX_FILES="$SCRIPT_DIR"
-export NFT_CORRECT_NAME=$(echo -n "Empowa Collateral v1.2 - test" | xxd -ps | tr -d '\n')
-export NFT_INCORRECT_NAME=$(echo -n "Empowa Collateral v1.1 - test" | xxd -ps | tr -d '\n')
-export PO_ASSET_NAME=$(echo -n "EMP" | xxd -ps | tr -d '\n')
+
+export CONTRACT_REF_UTXO="dfff51ce96b661334c45a6ee831b01cf8866dd0f2231d47ecd51fa2dc98c2d05#0"
+
 export TREASURY_ASSET_NAME=$(echo -n "TRS" | xxd -ps | tr -d '\n')
+
 export EXCH_TIME=85003316
 export RECALL_TIME=85003616
-export CONTRACT_REF_UTXO="5d6a1c8310768e6d9e17bdc096ba72d1329e803c107b515b3b3fb4c82533a2f8#0"
 
 export NFT_VKEY="$TX_FILES/keys/nft_policy.vkey"
 export NFT_SKEY="$TX_FILES/keys/nft_policy.skey"
 export NFT_SCRIPT="$TX_FILES/keys/nft_policy.script"
 export NFT_PID=$(cat "$TX_FILES/keys/nft_policy.id")
+export NFT_CORRECT_NAME=$(echo -n "Empowa Collateral v1.2 - test" | xxd -ps | tr -d '\n')
+export NFT_INCORRECT_NAME=$(echo -n "Empowa Collateral v1.1 - test" | xxd -ps | tr -d '\n')
 
 export POA_VKEY="$TX_FILES/keys/poa_policy.vkey"
 export POA_SKEY="$TX_FILES/keys/poa_policy.skey"
 export POA_SCRIPT="$TX_FILES/keys/poa_policy.script"
 export POA_PID="$(cat "$TX_FILES/keys/poa_policy.id")"
+export POA_ASSET_NAME=$(echo -n "EMP" | xxd -ps | tr -d '\n')
 
 export USER_VKEY="$TX_FILES/keys/user.vkey"
 export USER_SKEY="$TX_FILES/keys/user.skey"
