@@ -18,7 +18,7 @@ use config.{
   start_change_time, unlock_unclaimed_assets_time,
 }
 use helpers.{
-  aggregate_payouts, check_if_single_asset_burned, find_outputs_by_payment_cred,
+  aggregate_payouts, check_if_single_asset_minted, find_outputs_by_payment_cred,
   real_all, validate_optimality, verify_payouts,
 }
 use types.{Action, Bootstrap, Exchange, Recall}
@@ -559,6 +559,13 @@ validator empowa_swap {
         // Count the number of contract outputs to verify whether `Treasury_marker`s were minted correctly
         let contract_outputs_quantity = length(contract_outputs)
         // And the same for minted `Treasury_marker`s
+        let minting_is_fine =
+          check_if_single_asset_minted(
+            tx_mint,
+            contract_policy_id,
+            contract_treasury_marker_name,
+            burned: False,
+          )?
         let minted_markers_quantity =
           quantity_of(
             tx_mint,
@@ -571,6 +578,7 @@ validator empowa_swap {
 
         // Make a decision about the validity of input usage
         and {
+          minting_is_fine?,
           no_markers_in_inputs?,
           contract_outputs_are_fine?,
           minted_markers_match_contract_outputs?,
@@ -593,10 +601,11 @@ validator empowa_swap {
         // Here, we only need to ensure that this is a burning transaction, not minting, and that it is allowed by the timelock.
 
         and {
-          check_if_single_asset_burned(
+          check_if_single_asset_minted(
             tx_mint,
             contract_policy_id,
             contract_treasury_marker_name,
+            burned: True,
           )?,
           exchange_is_already_allowed?,
         }
@@ -616,10 +625,11 @@ validator empowa_swap {
         // Here, we only need to ensure that this is a burning transaction, not minting, and that it is allowed by the timelock.
 
         and {
-          check_if_single_asset_burned(
+          check_if_single_asset_minted(
             tx_mint,
             contract_policy_id,
             contract_treasury_marker_name,
+            burned: True,
           )?,
           recall_is_already_allowed?,
         }

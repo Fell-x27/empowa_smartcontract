@@ -1,4 +1,6 @@
 #!/bin/bash
+
+#run as ". SCRIPT"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null)"
 
 export ARTIFACTS_PATH="$(dirname "$SCRIPT_DIR")/artifacts"
@@ -37,3 +39,4 @@ export RECALL_RDM="$TX_FILES/redeemers/recall.json"
 export CONTRACT_SCRIPT="$ARTIFACTS_PATH/testnet/contract.script"
 export CONTRACT_ADDR=$(cat "$ARTIFACTS_PATH/testnet/contract.addr")
 export CONTRACT_PID=$(cat "$ARTIFACTS_PATH/testnet/contract.pid")
+

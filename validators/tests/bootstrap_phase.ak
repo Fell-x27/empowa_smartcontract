@@ -280,6 +280,97 @@ test failed_bootstrap_random_asset_instead_marker_minted() fail {
   )
 }
 
+test failed_bootstrap_random_asset_with_marker_minted() fail {
+  // Ensure that the user didn't mint anything else by the name of the contract
+  // It is not critical, but undesirable
+  let user_input_0 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: user_address,
+        value: from_asset(
+          payout_asset_pid,
+          payout_asset_name,
+          contract_treasury_asset_quantity,
+        ),
+        //^Actually, we don't check this value, but it is present for clarity.
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  let user_input_1 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: user_address,
+        value: from_lovelace(5_000_000),
+        //^Actually, we don't check this value, but it is present for clarity.
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  let user_output =
+    Output {
+      address: user_address,
+      value: from_asset_list(
+        [
+          Pair(ada_policy_id, [Pair(ada_asset_name, 2_000_000)]),
+          Pair(
+            payout_asset_pid,
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
+          ), Pair(contract_policy_id, [Pair("wrong asset name", 1)]),
+        ],
+      ),
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let contract_output =
+    Output {
+      address: contract_address,
+      value: from_asset_list(
+        [
+          Pair(
+            ada_policy_id,
+            [Pair(ada_asset_name, contract_treasury_lovelace_quantity)],
+          ),
+          Pair(
+            payout_asset_pid,
+            [Pair(payout_asset_name, contract_treasury_asset_quantity)],
+          ), Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+        ],
+      ),
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let mint_treasury_marker =
+    from_asset_list(
+      [
+        Pair(
+          contract_policy_id,
+          [Pair(contract_treasury_marker_name, 1), Pair("wrong asset name", 1)],
+        ),
+      ],
+    )
+
+  let tx =
+    Transaction {
+      ..placeholder,
+      inputs: [user_input_0, user_input_1],
+      outputs: [user_output, contract_output],
+      mint: mint_treasury_marker,
+    }
+
+  empowa_swap.empowa_swap.mint(
+    redeemer: Bootstrap,
+    contract_policy_id: contract_policy_id,
+    tx: tx,
+  )
+}
+
 test failed_bootstrap_treasury_marker_stealing() fail {
   // - AmountLock:
   //   - it's not allowed to create a treasury with `contract_policy_id.contract_treasury_marker_name` != 1 .

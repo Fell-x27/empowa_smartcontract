@@ -6,21 +6,26 @@ use cardano/address.{Address, PaymentCredential, Script, VerificationKey}
 use cardano/assets.{AssetName, PolicyId, Value, tokens}
 use cardano/transaction.{Output}
 
-pub fn check_if_single_asset_burned(
+pub fn check_if_single_asset_minted(
   tx_mint: Value,
   policy_id: PolicyId,
   asset_name: AssetName,
+  burned: Bool,
 ) -> Bool {
   // Verify that, for a specific policy, only assets with a specific name are present in the transaction
-  // And that their quantity is negative (i.e., they are being burned)
-  expect [Pair(burned_asset_name, asset_quantity)] =
+  // And that their quantity is positive or negative (i.e., they are being burned)
+  expect [Pair(minted_asset_name, asset_quantity)] =
     tx_mint
       |> tokens(policy_id)
       |> to_pairs()
 
   and {
-    (asset_name == burned_asset_name)?,
-    (asset_quantity < 0)?,
+    (asset_name == minted_asset_name)?,
+    if burned {
+      (asset_quantity < 0)?
+    } else {
+      (asset_quantity > 0)?
+    },
   }
 }
 
