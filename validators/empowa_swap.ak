@@ -358,9 +358,14 @@ validator empowa_swap {
           (contract_input_payout_assets_amount - contract_output_payout_assets_amount == expected_payouts_sum)?
 
         // Check whether the `Treasury_markers` were properly burned
-        expect [(_, _, burned_markers_count)] = burned_markers
+        let burned_markers_count =
+          when burned_markers is {
+            [] -> 0
+            [(_, _, count)] -> count * -1
+            _ -> fail
+          }
         let treasuries_are_removed_properly =
-          consumed_treasury_count == burned_markers_count * -1
+          consumed_treasury_count == burned_markers_count
 
         // If any `Treasury_UTxO` was consumed and its `Treasury_marker` burned, ensure that any remaining base ADA was sent to the contract owner
         let treasury_ada_are_sent_back_properly =
