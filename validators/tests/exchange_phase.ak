@@ -1,5 +1,7 @@
+use aiken/collection/list.{map, range, sort}
 use aiken/interval.{entirely_after, entirely_before}
 use aiken/primitive/bytearray.{concat}
+use aiken/primitive/string
 use cardano/address.{Address, VerificationKey}
 use cardano/assets.{
   ada_asset_name, ada_policy_id, from_asset, from_asset_list, from_lovelace,
@@ -19,6 +21,159 @@ use types.{Exchange}
 
 fn get_user_addr(pfx) {
   Address(VerificationKey(concat(pfx, "Some user")), None)
+}
+
+fn generate_nft_list(
+  from: Int,
+  to: Int,
+  name: ByteArray,
+  count: Int,
+) -> Pairs<ByteArray, Int> {
+  range(from, to)
+    |> map(
+        fn(number) {
+          Pair(
+            concat(name, string.to_bytearray(string.from_int(number))),
+            count,
+          )
+        },
+      )
+    |> sort(
+        fn(Pair(name1, _), Pair(name2, _)) { bytearray.compare(name1, name2) },
+      )
+}
+
+test succeed_all_treasury_consumed_in_one_tx() {
+  let user_input_0 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: get_user_addr("0"),
+        value: from_asset_list(
+          [Pair(burn_nft_pid, generate_nft_list(0, 10, burn_nft_name, 1))],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+  let user_input_1 =
+    Input(
+      utxo_def_ref,
+      Output {
+        address: get_user_addr("1"),
+        value: from_asset_list(
+          [Pair(burn_nft_pid, generate_nft_list(11, 19, burn_nft_name, 1))],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+  // The contract provides its own UTXOs as inputs, containing enough EMP to cover the user's payouts.
+  let contract_input_0 =
+    Input(
+      utxo_contract_ref,
+      Output {
+        address: contract_address,
+        value: from_asset_list(
+          [
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
+            ),
+            Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  let contract_input_1 =
+    Input(
+      utxo_contract_ref,
+      Output {
+        address: contract_address,
+        value: from_asset_list(
+          [
+            Pair(
+              payout_asset_pid,
+              [Pair(payout_asset_name, contract_treasury_asset_quantity)],
+            ),
+            Pair(contract_policy_id, [Pair(contract_treasury_marker_name, 1)]),
+          ],
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    )
+
+  // The user requests to burn some of their NFTs (not necessarily all of them).
+  let burning =
+    from_asset_list(
+      [
+        Pair(burn_nft_pid, generate_nft_list(0, 19, burn_nft_name, -1)),
+        Pair(contract_policy_id, [Pair(contract_treasury_marker_name, -2)]),
+      ],
+    )
+
+  // The user expects to receive EMP according to the established exchange rate.
+  let user_output_0 =
+    Output {
+      address: get_user_addr("0"),
+      value: from_asset(
+        payout_asset_pid,
+        payout_asset_name,
+        n2a_change_rate * 11,
+      ),
+      //^ 2 NFTs from the first addr were burned
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let user_output_1 =
+    Output {
+      address: get_user_addr("1"),
+      value: from_asset(
+        payout_asset_pid,
+        payout_asset_name,
+        n2a_change_rate * 9,
+      ),
+      //^ 2 NFTs from the first addr were burned
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let owner_output =
+    Output {
+      address: owner_address,
+      value: from_lovelace(contract_treasury_lovelace_quantity * 2),
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let tx =
+    Transaction {
+      ..placeholder,
+      inputs: [user_input_0, user_input_1, contract_input_0, contract_input_1],
+      outputs: [user_output_1, user_output_0, owner_output],
+      mint: burning,
+      validity_range: entirely_after(start_change_time),
+    }
+
+  // The transaction invokes both the `mint()` and `spend()` subvalidators.
+  and {
+    empowa_swap.empowa_swap.spend(
+      None,
+      redeemer: Exchange,
+      contract_utxo: utxo_contract_ref,
+      tx: tx,
+    ),
+    empowa_swap.empowa_swap.mint(
+      redeemer: Exchange,
+      contract_policy_id: contract_policy_id,
+      tx: tx,
+    ),
+  }
 }
 
 test succeed_exchange_treasury_part_consume() {
@@ -3083,4 +3238,145 @@ test failed_exchange_fake_payout() fail {
     contract_utxo: utxo_contract_ref,
     tx: tx,
   )
+}
+
+test succeed_real_case_simulation() {
+  let contract_inputs =
+    [7700, 11000, 11000]
+      |> map(
+          fn(emp_amount) {
+            Input(
+              utxo_contract_ref,
+              Output {
+                address: contract_address,
+                value: from_asset_list(
+                  [
+                    Pair(
+                      payout_asset_pid,
+                      [Pair(payout_asset_name, emp_amount)],
+                    ),
+                    Pair(
+                      contract_policy_id,
+                      [Pair(contract_treasury_marker_name, 1)],
+                    ),
+                  ],
+                ),
+                datum: NoDatum,
+                reference_script: None,
+              },
+            )
+          },
+        )
+
+  let user_inputs =
+    [
+      Input(
+        utxo_def_ref,
+        Output {
+          address: get_user_addr("0"),
+          value: from_asset_list(
+            [Pair(burn_nft_pid, generate_nft_list(0, 8, burn_nft_name, 1))],
+          ),
+          datum: NoDatum,
+          reference_script: None,
+        },
+      ),
+      Input(
+        utxo_def_ref,
+        Output {
+          address: get_user_addr("1"),
+          value: from_asset_list(
+            [Pair(burn_nft_pid, generate_nft_list(9, 17, burn_nft_name, 1))],
+          ),
+          datum: NoDatum,
+          reference_script: None,
+        },
+      ),
+      Input(
+        utxo_def_ref,
+        Output {
+          address: get_user_addr("2"),
+          value: from_asset_list(
+            [Pair(burn_nft_pid, generate_nft_list(18, 26, burn_nft_name, 1))],
+          ),
+          datum: NoDatum,
+          reference_script: None,
+        },
+      ),
+    ]
+
+  let user_outputs =
+    [
+      Output {
+        address: get_user_addr("0"),
+        value: from_asset(
+          payout_asset_pid,
+          payout_asset_name,
+          n2a_change_rate * 9,
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+      Output {
+        address: get_user_addr("1"),
+        value: from_asset(
+          payout_asset_pid,
+          payout_asset_name,
+          n2a_change_rate * 9,
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+      Output {
+        address: get_user_addr("2"),
+        value: from_asset(
+          payout_asset_pid,
+          payout_asset_name,
+          n2a_change_rate * 9,
+        ),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    ]
+
+  let burning =
+    from_asset_list(
+      [
+        Pair(burn_nft_pid, generate_nft_list(0, 26, burn_nft_name, -1)),
+        Pair(contract_policy_id, [Pair(contract_treasury_marker_name, -3)]),
+      ],
+    )
+
+  let owner_output =
+    Output {
+      address: owner_address,
+      value: from_lovelace(contract_treasury_lovelace_quantity * 3),
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let tx =
+    Transaction {
+      ..placeholder,
+      inputs: list.concat(user_inputs, contract_inputs),
+      outputs: [owner_output, ..user_outputs],
+      mint: // ,
+      burning,
+      validity_range: entirely_after(start_change_time),
+    }
+
+  // The transaction invokes both the `mint()` and `spend()` subvalidators.
+  and {
+    empowa_swap.empowa_swap.spend(
+      None,
+      redeemer: Exchange,
+      contract_utxo: utxo_contract_ref,
+      tx: tx,
+    ),
+    empowa_swap.empowa_swap.mint(
+      redeemer: Exchange,
+      contract_policy_id: contract_policy_id,
+      tx: tx,
+    ),
+  }
 }

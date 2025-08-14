@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null)"
 export ARTIFACTS_PATH="$(dirname "$SCRIPT_DIR")/artifacts"
 export TX_FILES="$SCRIPT_DIR"
 
-export CONTRACT_REF_UTXO="dfff51ce96b661334c45a6ee831b01cf8866dd0f2231d47ecd51fa2dc98c2d05#0"
+export CONTRACT_REF_UTXO="0ff92ccb584d044acd163cb7199a487703c38c5d7a55ff964f46f68d38430736#0"
 
 export TREASURY_ASSET_NAME=$(echo -n "TRS" | xxd -ps | tr -d '\n')
 
